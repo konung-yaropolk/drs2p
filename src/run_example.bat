@@ -1,1 +1,2 @@
-drs2p --path example.yaml
+python main.py --path ../example.yaml
+pause
