@@ -1,4 +1,4 @@
-working_dir: "/example"
+working_dir: "\\example"
 run_derivatives: true
 run_traces: false
 
