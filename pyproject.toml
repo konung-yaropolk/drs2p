@@ -31,9 +31,9 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/konung-yaropolk/misc_lab_scripts"
-Repository = "https://github.com/konung-yaropolk/misc_lab_scripts.git"
-Issues = "https://github.com/konung-yaropolk/misc_lab_scripts/issues"
+Homepage = "https://github.com/konung-yaropolk/drs2p"
+Repository = "https://github.com/konung-yaropolk/drs2p.git"
+Issues = "https://github.com/konung-yaropolk/drs2p/issues"
 
 [tool.setuptools.dynamic]
 dependencies = {file = ["requirements.txt"]}
