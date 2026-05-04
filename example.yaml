@@ -1,0 +1,60 @@
+working_dir: "/example"
+run_derivatives: true
+run_traces: false
+
+stim_1_name: "L5-C"
+stim_2_name: "L4-C"
+drs_pattern: [[1, 0], [0, 1]]
+n_epochs: 10
+
+movies:
+  - file_name: "Sample_1_.tif"
+    triggers:
+      - {
+        trig_number: 1,
+        label: "DRS",
+        n_epochs: 10,
+        stim_1_name: "A",
+        stim_2_name: "C",
+        drs_pattern: [[1, 0], [1, 1]],
+      }
+  - file_name: "Sample_2_.tif"
+    triggers: 
+      - {
+        trig_number: 1,
+        label: "DRS",
+        start_from_epoch: 1,
+        n_epochs: 10,
+        stim_1_name: "A",
+        stim_2_name: "C",
+        drs_pattern: [[1, 0], [1, 1]],
+      }
+  - file_name: 'Sample_3_.tif'
+    triggers:
+      - {
+          trig_number: 1,
+          label: "_Control",
+          start_from_epoch: 1,
+          stim_1_name: 'L5-C',
+          stim_2_name: 'L4-C',
+          n_epochs: 11,
+          resp_duration: 0.8,
+          sync_coef: -0.003,
+          vertical_shift_of_trig: 0,
+          SD_filter_of_trig: 0,
+          drs_pattern: [[1, 0], [1, 1]],
+      }
+      - {
+          trig_number: 13,          
+          label: "_Application",
+          start_from_epoch: 1,
+          stim_1_name: 'L5-C',
+          stim_2_name: 'L4-C',
+          n_epochs: 11,
+          resp_duration: 0.8,
+          sync_coef: -0.003,
+          vertical_shift_of_trig: 1,
+          SD_filter_of_trig: 1,
+          drs_pattern: [[1, 0], [1, 1]],
+      }
+

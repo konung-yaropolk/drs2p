@@ -1,0 +1,10 @@
+numpy
+scipy
+statsmodels
+matplotlib
+seaborn
+scikit-posthocs
+pandas
+autostatlib
+ruamel.yaml
+tifffile

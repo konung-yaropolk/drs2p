@@ -1,0 +1,214 @@
+2024_11_18_M1
+Mouse
+Female
+Pirt GCamp3 x Thy1 rGeco
+
+
+cage 8400/1
+ear punch: UR
+
+
+
+
+Stimulation: L4 left
+Stim pipette: 1.5mm OD
+
+
+Field of view: L4 left dorsal root entry zone
+mode: galvano if not indicated another
+starting condition: aCSF only recycling perfusion
+depth measured from surface of Lamina 1 not the dura or pia matter
+
+
+
+
+
+
+	DRS pattern #1:
+
+		A-stim means: 50us +150uA
+		C-stim means: 1ms  -150uA
+		100ms Lag between A and C stim when they appears simultaneously in the step
+
+		Each step:  10s
+		Each epoch: 2 steps = 20s
+		Epoch count: 10
+
+		Epoch by steps layout:
+		  _ _ 
+		A|x| |
+		C|x|x|
+
+		
+		Stimulators settings (two A-M systems 2100):
+
+	        	A-stim: delay     0; burst_width 221s; pulse_duration 0.05ms; interpulse_period 20s
+	        	C-stim: delay 0.10s; burst_width 200s; pulse_duration 1   ms; interpulse_period 10s
+
+
+
+	DRS pattern #2:
+
+		A-stim means: 50us +150uA
+		C-stim means: 1ms  -150uA
+		50ms Lag between A and C stim when they appears simultaneously in the step
+
+		Each step:  10s
+		Each epoch: 2 steps = 20s
+		Epoch count: 10
+
+		Epoch by steps layout:
+		  _ _ 
+		A|x| |
+		C|x|x|
+
+		
+		Stimulators settings (two A-M systems 2100):
+
+	        	A-stim: delay     0; burst_width 221s; pulse_duration 0.05ms; interpulse_period 20s
+	        	C-stim: delay 0.05s; burst_width 200s; pulse_duration 1   ms; interpulse_period 10s
+
+
+
+
+
+
+
+
+
+
+Files content:
+
+
+
+Presynaptic Inhibition project:  
+
+
+Field_1_PI: 	        # resonant scan, No visible PI
+	DRS pattern #1, Epoch count: 10, depth 10um
+
+Field_2_PI: 	        # resonant scan, big visible PI
+	DRS pattern #1, Epoch count: 10, depth 32.4um
+
+Field_3_PI: 	        # resonant scan, Huge visible PI
+	DRS pattern #2, Epoch count: 10, depth 47.8um
+
+Field_4_PI: 	        # resonant scan, Huge visible PI
+	DRS pattern #2, Epoch count: 10, depth 37.2um
+
+Field_5_PI: 	        # resonant scan, No visible PI
+	DRS pattern #2, Epoch count: 10, depth 13.2um
+
+Field_6_PI: 	        # resonant scan, Huge visible PI + postsynaptic PI
+	DRS pattern #2, Epoch count: 10, depth 27.4um
+
+Field_7_PI: 	        # resonant scan, No visible PI
+	DRS pattern #2, Epoch count: 10, depth 26.8um
+
+Field_8_PI: 	        # resonant scan Huge visible PI + postsynaptic PI
+	DRS pattern #2, Epoch count: 10, depth 40um
+
+Field_9_PI: 	        # resonant scan Huge visible PI + postsynaptic PI
+	DRS pattern #2, Epoch count: 10, depth 40um
+
+Field_10_PI: 	        # resonant scan Huge visible PI + postsynaptic PI
+	DRS pattern #2, Epoch count: 10, depth 38.4um
+
+
+
+
+
+
+
+
+
+
+
+TRP project:
+
+Field_11_trp_activators_application:
+
+
+	DRS   C 10Hz   2s  
+	DRS   C 10Hz   2s 
+	DRS A   10Hz   2s
+	DRS A   10Hz   2s
+
+
+	Drug Application: changed to HC030031           50uM tube (no recyculation)   # 
+	DRS A   10Hz   2s
+	DRS   C 10Hz   2s
+	Wash out
+
+	DRS   C 10Hz   2s
+	DRS A   10Hz   2s
+
+	Drug Application: changed to Ononetin           50uM tube (no recyculation)   # 
+	DRS A   10Hz   2s
+	DRS   C 10Hz   2s
+	Wash out 
+
+
+	DRS   C 10Hz   2s  
+
+
+
+Field_11_DRS:
+
+
+	DRS   C 10Hz   2s  
+	DRS   C 10Hz   2s  
+	DRS A   10Hz   2s
+	wrong trig (ononetin)
+	DRS A   10Hz   2s
+	Drug Application: CNQX(20um) and DL-AP5(100uM) directly into the tube (recyculation)   #
+
+	-- 3 min--
+	DRS A   10Hz   2s
+	DRS   C 10Hz   2s
+	DRS wrong trig, zero stim
+	DRS   C 10Hz   2s
+
+	-- 12 min--
+	DRS   C 10Hz   2s
+	DRS   C 10Hz   2s
+	DRS A   10Hz   2s
+
+
+
+
+
+Presynaptic Inhibition project:  
+
+After ~15 min application of CNQX(20um) and DL-AP5(100uM) directly into the tube (recyculation)  
+
+
+
+Field_12_PI: 	        # resonant scan, No visible PI due to inhibition of NMDA and AMPA transmission
+	DRS pattern #2, Epoch count: 10, depth 40.4um
+
+Field_13_PI: 	        # resonant scan, No visible PI due to inhibition of NMDA and AMPA transmission
+	DRS pattern #2, Epoch count: 10, depth 30um
+
+Field_14_PI: 	        # resonant scan, No visible PI due to inhibition of NMDA and AMPA transmission
+	DRS pattern #2, Epoch count: 10, depth 40.8um
+
+
+
+
+	Drugs disolving:
+
+HC030031     apply at 50 uM for 5 min (50 mM stock in DMSO) - disolve 1k  times
+Ononetin     apply at 50 uM for 5 min (50 mM stock in DMSO) - disolve 1k  times
+
+CNQX                   apply at 20uM            (50 mM stock in DMSO) - disolve 2.5k times
+DL-AP5 disodium salt   apply at 100uM           (50 mM stock in h2o)  - disolve 0.5k times
+
+
+
+
+	Summary: 
+
+1. Pre and postsynaptic visible effects of PI
+2. PI disapears during CNQX + AP% application due to the inhibition of NMDA and AMPA transmission
+

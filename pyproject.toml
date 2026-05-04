@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=77.0.3",]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "drs2p"
+version = "0.1.0"
+dynamic = ["dependencies"]
+license = "GPL-3.0-only"
+# license = {file = "LICENSE"}
+authors = [
+  { name="konung-yaropolk", email="yaropolk1995@gmail.com" },
+  { name="Stemonitis"},
+  { name="SciWare LLC"},
+]
+description = "Automated 2-photon data analysis tool"
+keywords = ["Science", "Statistics"]
+readme = {file = "README.md", content-type = "text/markdown"}
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Operating System :: OS Independent",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Natural Language :: English",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+]
+
+[project.urls]
+Homepage = "https://github.com/konung-yaropolk/misc_lab_scripts"
+Repository = "https://github.com/konung-yaropolk/misc_lab_scripts.git"
+Issues = "https://github.com/konung-yaropolk/misc_lab_scripts/issues"
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+
+[project.scripts]
+drs2p = "drs2p.main:entry_point"
