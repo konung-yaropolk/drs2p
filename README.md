@@ -5,4 +5,6 @@ pip install -e .
 
 
 ## run code:
-'''main.py --path example.yaml'''
+'''
+main.py --path example.yaml
+'''
