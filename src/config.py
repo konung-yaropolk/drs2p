@@ -99,7 +99,7 @@ class MovieConfig: #since one yaml can specify multipl experiments, there is a s
 @dataclass  
 class RunConfig:
     #required
-    working_dir: str='sample/' #path to tiffs 
+    working_dir: str='' # is always set from yaml file location in main()
 
     #pipeline control
     run_derivatives: bool = True
