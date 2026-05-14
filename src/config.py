@@ -10,8 +10,9 @@ class TriggerConfig:
     #pipeline control
     run_derivatives: Optional[bool] = None
     run_traces: Optional[bool] = None
-    roi_detection: Literal['auto', 'manual', 'skip'] = 'skip'
-    
+    roi_detection: Optional[str] = None
+    roi_file_index: Optional[int] = None
+
     # ALL analysis defaults live here and only here
     relative_values: Optional[bool] = None # plot and calculate in for of dF/F0 (almost always true unless certain exotic cases)
     sync_coef: Optional[float] = None
@@ -48,7 +49,8 @@ class MovieConfig: #since one yaml can specify multipl experiments, there is a s
     #pipeline control
     run_derivatives: Optional[bool] = None
     run_traces: Optional[bool] = None
-    roi_detection: Literal['auto', 'manual', 'skip'] = 'skip'
+    roi_detection: Optional[str] = None
+    roi_file_index: Optional[int] = None
     movie_stabilization: Optional[bool] = None
     
     # ALL analysis defaults live here and only here
@@ -100,15 +102,16 @@ class MovieConfig: #since one yaml can specify multipl experiments, there is a s
 class RunConfig:
     #required
     working_dir: str='' # is always set from yaml file location in main()
-
+    fiji_path: str='' # path to fiji(or imageJ) executable
     #pipeline control
     run_derivatives: bool = True
     run_traces: bool = True
     multiprocessing: bool = False
     processes_limit: int = 10
-    roi_detection: Literal['auto', 'manual', 'skip'] = 'skip'
+    roi_detection: Literal['all', 'manual', 'skip', "fixed"] = 'manual' #"all" - takes rois for all derrivatives, manual - asks user for each, skip - skips, fixed - determined by roi_file_index
+    roi_file_index: Optional[int] = 2
     movie_stabilization: bool = True
-
+    
     # ALL analysis defaults live here and only here
     relative_values: bool = True # plot and calculate in for of dF/F0 (almost always true unless certain exotic cases)
     sync_coef: float = -0.003 ## Adjust the sampling interval to account for the
