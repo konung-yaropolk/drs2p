@@ -31,7 +31,7 @@ class DerivativesCalc(Helpers, Debug):
         self.file_path=os.path.join(run_config.working_dir, movie_config.file_name)
         self.path = os.path.dirname(self.file_path)
         self.file = os.path.basename(self.file_path)
-        self.output_suffix = "_"+self.trigger_config.label
+        self.output_suffix = self.trigger_config.label
         self.filename_suffix, self.file_nosuffix = self.calculate_suffix_and_nosuffix(self.file_path)
         #these will be deleted once i deal with the helpers class
         self.s_movie_duration = movie_config.movie_duration
