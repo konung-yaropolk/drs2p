@@ -32,7 +32,7 @@ def parse_metadata(file_path: str):
 def resolve_configs(child_config, parent_config):
     """
     Fill in None fields on child from parent.
-    Резолвить ієрархію атриьбутів дата класів
+    Резолвить ієрархію атрибутів дата класів
     """
     for field_name, value in vars(child_config).items():
         if value is None and hasattr(parent_config, field_name):
@@ -56,6 +56,9 @@ def main(config_path):
          )
             for f in raw.get("movies", [])],
         **{k: v for k, v in raw.items() if k != "movies"}) #extract everything except movies
+    
+    # set working_dir from yaml file location
+    run_config.working_dir = os.path.dirname(os.path.abspath(config_path)) + '/'
     
     for movie_config in run_config.movies:
         resolve_configs(movie_config, run_config)
