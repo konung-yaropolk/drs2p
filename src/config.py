@@ -12,6 +12,7 @@ class TriggerConfig:
     run_traces: Optional[bool] = None
     roi_detection: Optional[str] = None
     roi_file_index: Optional[int] = None
+    run_csv_multimeasure: Optional[bool] = None
 
     # ALL analysis defaults live here and only here
     relative_values: Optional[bool] = None # plot and calculate in for of dF/F0 (almost always true unless certain exotic cases)
@@ -51,6 +52,8 @@ class MovieConfig: #since one yaml can specify multipl experiments, there is a s
     run_traces: Optional[bool] = None
     roi_detection: Optional[str] = None
     roi_file_index: Optional[int] = None
+    run_csv_multimeasure: Optional[bool] = None
+
     movie_stabilization: Optional[bool] = None
     
     # ALL analysis defaults live here and only here
@@ -111,6 +114,8 @@ class RunConfig:
     roi_detection: Literal['all', 'manual', 'skip', "fixed"] = 'manual' #"all" - takes rois for all derrivatives, manual - asks user for each, skip - skips, fixed - determined by roi_file_index
     roi_file_index: Optional[int] = 2
     movie_stabilization: bool = True
+    run_csv_multimeasure: bool = True
+
     
     # ALL analysis defaults live here and only here
     relative_values: bool = True # plot and calculate in for of dF/F0 (almost always true unless certain exotic cases)
