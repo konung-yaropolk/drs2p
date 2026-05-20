@@ -33,11 +33,10 @@ class Trigger:
         self.log += self.traces.log
 
     def _roi_detection(self):
-
         #detect all the derivative files
         derivatives_dir = os.path.join(
             self.run_config.working_dir,
-            self.movie_config.file_name[:-4] + DERIVATIVES_SUBFOLDER_NAME + self.trigger_config.label)
+            self.movie_config.file_name + DERIVATIVES_SUBFOLDER_NAME + self.trigger_config.label)
         if not os.path.exists(derivatives_dir):
             print(f"Derivatives folder not found: {derivatives_dir}")
             return
