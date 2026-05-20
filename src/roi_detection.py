@@ -96,8 +96,8 @@ class RoiMeasurer:
         n = len(xf)
     
         # offsets for coordinate system
-        x_offset = roi.left
-        y_offset = roi.top
+        x_offset = 0  # coords already in global image space
+        y_offset = 0
         
         height, width = shape
         
