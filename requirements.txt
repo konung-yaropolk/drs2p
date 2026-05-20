@@ -4,7 +4,9 @@ statsmodels
 matplotlib
 seaborn
 scikit-posthocs
+scikit-image
 pandas
 AutoStatLib>=0.3.0
 ruamel.yaml
 tifffile
+roifile
