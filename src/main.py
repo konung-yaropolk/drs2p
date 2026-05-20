@@ -1,6 +1,7 @@
 import re
 import os
 import argparse
+import traceback
 from ruamel.yaml import YAML
 
 from config import RunConfig, MovieConfig, TriggerConfig
@@ -130,7 +131,8 @@ def main(config_path):
             
             except Exception as e:
                 print(f'Error in trigger {trigger.trig_number} '
-                      f'({trigger.label}): {repr(e)}')
+                      f'({trigger.label}): {repr(e)}'
+                      f'\n{traceback.format_exc()}')
             
             finally:
                 if 'trigger_analysis' in locals():

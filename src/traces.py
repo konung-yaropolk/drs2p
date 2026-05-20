@@ -445,6 +445,30 @@ class TracesCalc(Helpers, Debug):
                 s2_auc_list_each_by_epoch
             ) / np.array(s1_auc_list_each_by_epoch)
 
+        # Як рахуємо коли в нас є і перший і другий стимули окремо і обидва разом
+        if s1 and s1s2:
+            # тут можна помінять якщо треба інший варіант порівнянь
+            st1_ampl_mean_of_epochs_by_rois = s1s2_ampl_mean_of_epochs_by_rois
+            st2_ampl_mean_of_epochs_by_rois = s2_ampl_mean_of_epochs_by_rois
+
+            ampl_st2_to_st1_ratio_mean_of_epochs_by_rois = np.array(
+                s2_ampl_mean_of_epochs_by_rois
+            ) / np.array(s1s2_ampl_mean_of_epochs_by_rois)
+            ampl_st2_to_st1_ratio_rois_by_epoch = np.array(
+                s2_ampl_list_each_by_epoch
+            ) / np.array(s1s2_ampl_list_each_by_epoch)
+
+            st1_auc_mean_of_epochs_by_rois = s1s2_auc_mean_of_epochs_by_rois
+            st2_auc_mean_of_epochs_by_rois = s2_auc_mean_of_epochs_by_rois
+
+            auc_st2_to_st1_ratio_mean_of_epochs_by_rois = np.array(
+                s2_auc_mean_of_epochs_by_rois
+            ) / np.array(s1s2_auc_mean_of_epochs_by_rois)
+            auc_st2_to_st1_ratio_rois_by_epoch = np.array(
+                s2_auc_list_each_by_epoch
+            ) / np.array(s1s2_auc_list_each_by_epoch)
+        
+
         # Binarization:
 
         if not s1s2 and not s1:
@@ -467,6 +491,13 @@ class TracesCalc(Helpers, Debug):
             st1_bin_summary_by_rois = [
                 sum(i) / len(i) > BINARIZATION_RESP_THRESHOLD
                 for i in s1_bin_list_each_by_epoch
+            ]
+        # fix for case with 'long' stim patterns when s1, s1s2, and s2 are presented all
+        # ugly cinstruction, but it works, and I don't have time to refactor it now
+        if s1 and s1s2:
+            st1_bin_summary_by_rois = [
+                sum(i) / len(i) > BINARIZATION_RESP_THRESHOLD
+                for i in s1s2_bin_list_each_by_epoch
             ]
         st2_bin_summary_by_rois = [
             sum(i) / len(i) > BINARIZATION_RESP_THRESHOLD
