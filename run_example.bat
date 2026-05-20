@@ -1,2 +1,2 @@
-python /src/main.py --path example.yaml
+python ./src/main.py --path example.yaml
 pause
