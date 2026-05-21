@@ -1082,7 +1082,6 @@ class TracesCalc(Helpers, Debug):
                 r"^" + re.escape(self.file_nosuffix) + r".*\.csv$", nonrecursive=True
             )
         )
-        print(csv_list)
 
         if csv_list:
 
