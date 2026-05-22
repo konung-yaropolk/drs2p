@@ -225,7 +225,7 @@ class TracesCalc(Helpers, Debug):
                     (i * self.s_epoch_duration) + delay,
                     (i * self.s_epoch_duration) + delay + self.trigger_config.step_duration / 2,
                 )[j]
-                for i in range(self.trigger_config.start_from_epoch, self.trigger_config.n_epochs)
+                for i in range(self.trigger_config.start_from_epoch-1, self.trigger_config.n_epochs)
             ]
             for j in range(6)
         ]
@@ -275,7 +275,7 @@ class TracesCalc(Helpers, Debug):
         self.s1s2_delay = 0
         self.s1_delay = 0
         self.s2_delay = 0
-         # check if we have the expected pattern
+        # check if we have the expected pattern
         # detailed_stats only works when s1s2 or s1 alone is present
         # skip if pattern is s1 and s2 alternating (no s1s2)
         has_s1s2 = any(a == 1 and c == 1 for a, c in zip(
@@ -365,7 +365,7 @@ class TracesCalc(Helpers, Debug):
 
         # Check is there both stim or only one to avoid errs
         # Огидна конструкція, потім переробити
-        pythonst1_ampl_mean_of_epochs_by_rois = []
+        st1_ampl_mean_of_epochs_by_rois = []
         st2_ampl_mean_of_epochs_by_rois = []
         st1_auc_mean_of_epochs_by_rois = []
         st2_auc_mean_of_epochs_by_rois = []
@@ -733,14 +733,14 @@ class TracesCalc(Helpers, Debug):
         matrix = self.csv_matrix[
             int(
                 (
-                    (self.trigger_config.start_from_epoch)
+                    (self.trigger_config.start_from_epoch-1)
                     * self.trigger_config.step_duration
                     * self.n_steps_per_epoch
                 )
                 / self.movie_config.seconds_per_frame
             ) : int(
                 (
-                    (self.trigger_config.start_from_epoch + self.trigger_config.n_epochs + 1)
+                    (self.trigger_config.start_from_epoch-1 + self.trigger_config.n_epochs + 1)
                     * self.trigger_config.step_duration
                     * self.n_steps_per_epoch
                 )
@@ -789,7 +789,7 @@ class TracesCalc(Helpers, Debug):
 
         self.plot_stacked_traces(
             np.array(matrix_T[0])
-            - ((self.trigger_config.start_from_epoch) * self.trigger_config.step_duration * self.n_steps_per_epoch),
+            - ((self.trigger_config.start_from_epoch-1) * self.trigger_config.step_duration * self.n_steps_per_epoch),
             matrix_T[:],
             s1s2_bin_list_each_by_epoch,
             st1_bin_summary_by_rois,
@@ -801,7 +801,7 @@ class TracesCalc(Helpers, Debug):
         )
         self.plot_stacked_traces(
             np.array(matrix_T[0])
-            - ((self.trigger_config.start_from_epoch) * self.trigger_config.step_duration * self.n_steps_per_epoch),
+            - ((self.trigger_config.start_from_epoch-1) * self.trigger_config.step_duration * self.n_steps_per_epoch),
             matrix_T[:],
             s2_bin_list_each_by_epoch,
             st2_bin_summary_by_rois,
@@ -818,7 +818,7 @@ class TracesCalc(Helpers, Debug):
             self.plot_stacked_traces(
                 np.array(matrix_T[0])
                 - (
-                    (self.trigger_config.start_from_epoch)
+                    (self.trigger_config.start_from_epoch-1)
                     * self.trigger_config.step_duration
                     * self.n_steps_per_epoch
                 ),
@@ -840,7 +840,7 @@ class TracesCalc(Helpers, Debug):
             self.plot_stacked_traces(
                 np.array(matrix_T[0])
                 - (
-                    (self.trigger_config.start_from_epoch)
+                    (self.trigger_config.start_from_epoch-1)
                     * self.trigger_config.step_duration
                     * self.n_steps_per_epoch
                 ),
@@ -865,7 +865,7 @@ class TracesCalc(Helpers, Debug):
         #         s1s2_raw_line_list[i],
         #         s2_raw_line_list[i],
         #         "{0}{1}/_epoch{2}_AC_C_traces_auto_.png".format(
-        #             csv_path, output_dir[:], i + self.trigger_config.start_from_epoch
+        #             csv_path, output_dir[:], i + self.trigger_config.start_from_epoch-1
         #         ),
         #     )
 
@@ -1075,7 +1075,6 @@ class TracesCalc(Helpers, Debug):
         plt.close()
 
     def run(self, detailed_stats=True):
-        # print(f"TracesCalc.run() called for {self.file_nosuffix}{self.output_suffix}")
         csv_list = []
         csv_list.extend(
             self.file_lister(

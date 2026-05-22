@@ -1,9 +1,3 @@
-import numpy as np
-import os
-
-DERIVATIVES_SUBFOLDER_NAME = "_DERIVATIVES_auto_"
-
-
 class Debug:
 
     def debug_sync_during_derivatives(
@@ -12,15 +6,13 @@ class Debug:
 
         x = np.array([i for i in range(self.n_frames)])
         y = np.array([np.mean(np.mean(self.img, axis=1), axis=1)])
-        
-        n_steps_per_epoch = len(self.trigger_config.drs_pattern[0])
-        s_epoch_duration = self.trigger_config.step_duration * n_steps_per_epoch
+
         last_epoch_time = (
             self.s_trig_time
-            + (self.trigger_config.start_from_epoch-1 + self.trigger_config.n_epochs - 1) * s_epoch_duration
+            + (self.start_from_epoch + self.n_epochs - 1) * self.s_epoch_duration
         )
-        start = self.sec_to_frame(last_epoch_time - self.trigger_config.step_duration)
-        end = self.sec_to_frame(last_epoch_time + self.trigger_config.step_duration * 2)
+        start = self.sec_to_frame(last_epoch_time - self.s_step_duration)
+        end = self.sec_to_frame(last_epoch_time + self.s_step_duration * 2)
         y2 = np.array([np.mean(np.mean(self.img, axis=1)[start:end], axis=1)])
 
         lines1 = [
@@ -30,7 +22,7 @@ class Debug:
 
         lines2 = [
             [i for i in range(*sorted(self.derivatives_frames_log)[-j])]
-            for j in range(1, n_steps_per_epoch + 1)
+            for j in range(1, self.n_steps_per_epoch + 1)
         ]
 
         self.derivatives_frames_log = [
@@ -46,16 +38,16 @@ class Debug:
         x3 = [
             i
             for i in range(
-                self.sec_to_frame(-self.trigger_config.step_duration / 4),
-                self.sec_to_frame(self.trigger_config.step_duration / 2) - 1,
+                self.sec_to_frame(-self.s_step_duration / 4),
+                self.sec_to_frame(self.s_step_duration / 2) - 1,
             )
         ]
         y3 = []
 
         for frame in self.derivatives_frames_log:
             appendix = []
-            begin = frame[0] - self.sec_to_frame(self.trigger_config.step_duration / 4)
-            finish = frame[0] + self.sec_to_frame(self.trigger_config.step_duration / 2)
+            begin = frame[0] - self.sec_to_frame(self.s_step_duration / 4)
+            finish = frame[0] + self.sec_to_frame(self.s_step_duration / 2)
 
             begin -= 1
             finish -= 1
@@ -72,7 +64,7 @@ class Debug:
         events1.extend(lines1.tolist())
 
         events2 = sorted(self.derivatives_frames_log.copy())[
-            -n_steps_per_epoch :
+            -self.n_steps_per_epoch :
         ].copy()
         events2.extend(lines2.tolist())
         events3.extend(lines3.tolist())
@@ -123,7 +115,7 @@ class Debug:
             event_linestyle="-",
             avg_linecolor="darkcyan",
             alpha=0.5,
-            fillalpha=1 / (n_steps_per_epoch * self.trigger_config.n_epochs),
+            fillalpha=1 / (self.n_steps_per_epoch * self.n_epochs),
             dpi=100,
             figsize=(10, 5),
         )
@@ -143,21 +135,20 @@ class Debug:
         # )
 
     def debug_sync_during_trace_calculation(self, csv_path, output_dir):
-        n_steps_per_epoch = len(self.trigger_config.drs_pattern[0])
 
-        start = self.trigger_config.start_from_epoch-1 * self.trigger_config.step_duration * n_steps_per_epoch
-        end = start + self.trigger_config.step_duration
+        start = self.start_from_epoch * self.s_step_duration * self.n_steps_per_epoch
+        end = start + self.s_step_duration
         start_frame = int(
-            ((self.trigger_config.start_from_epoch-1) * self.trigger_config.step_duration * self.n_steps_per_epoch)
-            / self.movie_config.seconds_per_frame
+            ((self.start_from_epoch) * self.s_step_duration * self.n_steps_per_epoch)
+            / self.spf
         )
         end_frame = int(
             (
-                (self.trigger_config.start_from_epoch-1 + 1.5)
-                * self.trigger_config.step_duration
-                * n_steps_per_epoch
+                (self.start_from_epoch + 1.5)
+                * self.s_step_duration
+                * self.n_steps_per_epoch
             )
-            / self.movie_config.seconds_per_frame
+            / self.spf
         )
 
         chunk = self.csv_matrix[start_frame:end_frame]

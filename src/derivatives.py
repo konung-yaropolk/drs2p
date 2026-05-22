@@ -174,7 +174,7 @@ class DerivativesCalc(Helpers, Debug):
                     self.calc_sequence(i, "DERIVATIVES_auto_.tif")
 
         self.logging(
-            f"Taken {self.trigger_config.n_epochs} epochs: {self.trigger_config.start_from_epoch-1 + 1} to {self.trigger_config.n_epochs + self.trigger_config.start_from_epoch-1}\n"
+            f"Taken {self.trigger_config.n_epochs} epochs: {self.trigger_config.start_from_epoch} to {self.trigger_config.n_epochs + self.trigger_config.start_from_epoch-1}\n"
         )
 
         if DEBUG:
