@@ -59,7 +59,7 @@ function detectAndSaveParticles(savepath) {{
     close("*");
 }}
 
-open("{self.derivative_tiff}");
+open("{os.path.join(self.dir, self.derivative_tiff)}");
 title = getTitle();
 detectAndSaveParticles("{roi_path}");
 eval("script", "System.exit(0);");
