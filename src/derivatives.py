@@ -85,7 +85,7 @@ class DerivativesCalc(Helpers, Debug):
         n_steps_per_epoch = len(self.trigger_config.drs_pattern[0])
         s_epoch_duration = self.trigger_config.step_duration * n_steps_per_epoch
 
-        for i in range(self.trigger_config.start_from_epoch-1, self.trigger_config.n_epochs + self.trigger_config.start_from_epoch-1):
+        for i in range((self.trigger_config.start_from_epoch-1), self.trigger_config.n_epochs + (self.trigger_config.start_from_epoch-1)):
             start = self.sec_to_frame(
                 self.s_trig_time + (i * s_epoch_duration) + s_step_shift
             )
@@ -174,7 +174,7 @@ class DerivativesCalc(Helpers, Debug):
                     self.calc_sequence(i, "DERIVATIVES_auto_.tif")
 
         self.logging(
-            f"Taken {self.trigger_config.n_epochs} epochs: {self.trigger_config.start_from_epoch} to {self.trigger_config.n_epochs + self.trigger_config.start_from_epoch-1}\n"
+            f"Taken {self.trigger_config.n_epochs} epochs: {self.trigger_config.start_from_epoch} to {self.trigger_config.n_epochs + (self.trigger_config.start_from_epoch-1)}\n"
         )
 
         if DEBUG:

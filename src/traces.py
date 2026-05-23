@@ -225,7 +225,7 @@ class TracesCalc(Helpers, Debug):
                     (i * self.s_epoch_duration) + delay,
                     (i * self.s_epoch_duration) + delay + self.trigger_config.step_duration / 2,
                 )[j]
-                for i in range(self.trigger_config.start_from_epoch-1, self.trigger_config.n_epochs)
+                for i in range((self.trigger_config.start_from_epoch-1), self.trigger_config.n_epochs)
             ]
             for j in range(6)
         ]
@@ -740,7 +740,7 @@ class TracesCalc(Helpers, Debug):
                 / self.movie_config.seconds_per_frame
             ) : int(
                 (
-                    (self.trigger_config.start_from_epoch-1 + self.trigger_config.n_epochs + 1)
+                    ((self.trigger_config.start_from_epoch-1) + self.trigger_config.n_epochs + 1)
                     * self.trigger_config.step_duration
                     * self.n_steps_per_epoch
                 )
@@ -865,7 +865,7 @@ class TracesCalc(Helpers, Debug):
         #         s1s2_raw_line_list[i],
         #         s2_raw_line_list[i],
         #         "{0}{1}/_epoch{2}_AC_C_traces_auto_.png".format(
-        #             csv_path, output_dir[:], i + self.trigger_config.start_from_epoch-1
+        #             csv_path, output_dir[:], i + (self.trigger_config.start_from_epoch-1)
         #         ),
         #     )
 
