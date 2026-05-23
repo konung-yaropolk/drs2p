@@ -19,6 +19,25 @@ class Trigger:
         self.traces = TracesCalc(run_config,movie_config,trigger_config)
         # self.v_shifts = v_shifts
         # self.filters = filters
+
+
+        print(self.movie_config.file_name, '-----------------------------')
+        print(self.trigger_config.sync_coef, '-----------------------------')
+        print(self.movie_config.seconds_per_frame, '-----------------------------')
+
+        # initial adjustments:  
+        # make start trigger zero-based
+        self.trigger_config.start_from_epoch -= 1  
+        # apply sync coefficient
+        self.movie_config.movie_duration = self.movie_config.movie_duration * (1 + self.trigger_config.sync_coef)  
+        self.movie_config.seconds_per_frame = self.movie_config.seconds_per_frame * (1 + self.trigger_config.sync_coef)  
+        self.movie_config.fps = 1 / self.movie_config.seconds_per_frame
+
+        print(self.movie_config.seconds_per_frame, '-----------------------------')
+
+
+
+
     def run(self):
         if self.trigger_config.run_derivatives: 
             self.derivatives.run()

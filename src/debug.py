@@ -17,7 +17,7 @@ class Debug:
         s_epoch_duration = self.trigger_config.step_duration * n_steps_per_epoch
         last_epoch_time = (
             self.s_trig_time
-            + ((self.trigger_config.start_from_epoch-1) + self.trigger_config.n_epochs - 1) * s_epoch_duration
+            + (self.trigger_config.start_from_epoch + self.trigger_config.n_epochs - 1) * s_epoch_duration
         )
         start = self.sec_to_frame(last_epoch_time - self.trigger_config.step_duration)
         end = self.sec_to_frame(last_epoch_time + self.trigger_config.step_duration * 2)
@@ -145,21 +145,20 @@ class Debug:
     def debug_sync_during_trace_calculation(self, csv_path, output_dir):
         n_steps_per_epoch = len(self.trigger_config.drs_pattern[0])
 
-        start = (self.trigger_config.start_from_epoch-1) * self.trigger_config.step_duration * n_steps_per_epoch
+        start = self.trigger_config.start_from_epoch * self.trigger_config.step_duration * n_steps_per_epoch
         end = start + self.trigger_config.step_duration
         start_frame = int(
-            ((self.trigger_config.start_from_epoch-1) * self.trigger_config.step_duration * self.n_steps_per_epoch)
+            (self.trigger_config.start_from_epoch * self.trigger_config.step_duration * self.n_steps_per_epoch)
             / self.movie_config.seconds_per_frame
         )
         end_frame = int(
             (
-                ((self.trigger_config.start_from_epoch-1) + 1.5)
+                (self.trigger_config.start_from_epoch + 1.5)
                 * self.trigger_config.step_duration
                 * n_steps_per_epoch
             )
             / self.movie_config.seconds_per_frame
         )
-        print(start, end, start_frame, end_frame)
 
         chunk = self.csv_matrix[start_frame:end_frame]
         chunk_T = self.transpose(chunk)

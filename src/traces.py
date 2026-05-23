@@ -25,7 +25,7 @@ class TracesCalc(Helpers, Debug):
         self.log = ' \n'
         self.file_path=os.path.join(run_config.working_dir, movie_config.file_name)
         self.filename_suffix, self.file_nosuffix = self.calculate_suffix_and_nosuffix(self.file_path)
-        self.s_trig_time = movie_config.events[trigger_config.trig_number - 1][1]
+        self.s_trig_time = self.movie_config.events[self.trigger_config.trig_number - 1][1]
         self.output_suffix = "_"+self.trigger_config.label
         self.path = os.path.dirname(self.file_path)
         self.s_epoch_duration = self.trigger_config.step_duration * len(self.trigger_config.drs_pattern[0])
@@ -225,7 +225,7 @@ class TracesCalc(Helpers, Debug):
                     (i * self.s_epoch_duration) + delay,
                     (i * self.s_epoch_duration) + delay + self.trigger_config.step_duration / 2,
                 )[j]
-                for i in range((self.trigger_config.start_from_epoch-1), self.trigger_config.n_epochs)
+                for i in range(self.trigger_config.start_from_epoch, self.trigger_config.n_epochs)
             ]
             for j in range(6)
         ]
@@ -295,9 +295,9 @@ class TracesCalc(Helpers, Debug):
         
 
         # create unique id for each calculation unit (trigger)
-        # unit_id = self.file_path + '%' + str(self.trigger_config.trig_number)
+        # unit_id = self.file_path + '%' + str(self.trigger_config.trig_number-1)
         unit_id = (
-            csv_path + csv_file + "$" + str(self.trigger_config.trig_number) + "$" + self.output_suffix
+            csv_path + csv_file + "$" + str(self.trigger_config.trig_number-1) + "$" + self.output_suffix
         )
 
         s1s2 = False
@@ -733,14 +733,14 @@ class TracesCalc(Helpers, Debug):
         matrix = self.csv_matrix[
             int(
                 (
-                    (self.trigger_config.start_from_epoch-1)
+                    self.trigger_config.start_from_epoch
                     * self.trigger_config.step_duration
                     * self.n_steps_per_epoch
                 )
                 / self.movie_config.seconds_per_frame
             ) : int(
                 (
-                    ((self.trigger_config.start_from_epoch-1) + self.trigger_config.n_epochs + 1)
+                    (self.trigger_config.start_from_epoch + self.trigger_config.n_epochs + 1)
                     * self.trigger_config.step_duration
                     * self.n_steps_per_epoch
                 )
@@ -789,7 +789,7 @@ class TracesCalc(Helpers, Debug):
 
         self.plot_stacked_traces(
             np.array(matrix_T[0])
-            - ((self.trigger_config.start_from_epoch-1) * self.trigger_config.step_duration * self.n_steps_per_epoch),
+            - (self.trigger_config.start_from_epoch * self.trigger_config.step_duration * self.n_steps_per_epoch),
             matrix_T[:],
             s1s2_bin_list_each_by_epoch,
             st1_bin_summary_by_rois,
@@ -801,7 +801,7 @@ class TracesCalc(Helpers, Debug):
         )
         self.plot_stacked_traces(
             np.array(matrix_T[0])
-            - ((self.trigger_config.start_from_epoch-1) * self.trigger_config.step_duration * self.n_steps_per_epoch),
+            - (self.trigger_config.start_from_epoch * self.trigger_config.step_duration * self.n_steps_per_epoch),
             matrix_T[:],
             s2_bin_list_each_by_epoch,
             st2_bin_summary_by_rois,
@@ -818,7 +818,7 @@ class TracesCalc(Helpers, Debug):
             self.plot_stacked_traces(
                 np.array(matrix_T[0])
                 - (
-                    (self.trigger_config.start_from_epoch-1)
+                    self.trigger_config.start_from_epoch
                     * self.trigger_config.step_duration
                     * self.n_steps_per_epoch
                 ),
@@ -840,7 +840,7 @@ class TracesCalc(Helpers, Debug):
             self.plot_stacked_traces(
                 np.array(matrix_T[0])
                 - (
-                    (self.trigger_config.start_from_epoch-1)
+                    self.trigger_config.start_from_epoch
                     * self.trigger_config.step_duration
                     * self.n_steps_per_epoch
                 ),
@@ -865,7 +865,7 @@ class TracesCalc(Helpers, Debug):
         #         s1s2_raw_line_list[i],
         #         s2_raw_line_list[i],
         #         "{0}{1}/_epoch{2}_AC_C_traces_auto_.png".format(
-        #             csv_path, output_dir[:], i + (self.trigger_config.start_from_epoch-1)
+        #             csv_path, output_dir[:], i + self.trigger_config.start_from_epoch
         #         ),
         #     )
 

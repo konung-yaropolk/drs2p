@@ -26,7 +26,7 @@ class DerivativesCalc(Helpers, Debug):
         self.run_config = run_config
         self.movie_config = movie_config
         self.trigger_config = trigger_config
-        self.s_trig_time = self.movie_config.events[self.trigger_config.trig_number-1][1] #recheck
+        self.s_trig_time = self.movie_config.events[self.trigger_config.trig_number - 1][1] #recheck
         self.log = ' \n'
         self.file_path=os.path.join(run_config.working_dir, movie_config.file_name)
         self.path = os.path.dirname(self.file_path)
@@ -35,8 +35,6 @@ class DerivativesCalc(Helpers, Debug):
         self.filename_suffix, self.file_nosuffix = self.calculate_suffix_and_nosuffix(self.file_path)
         #these will be deleted once i deal with the helpers class
         self.s_movie_duration = movie_config.movie_duration
-        self.spf = movie_config.seconds_per_frame * (1 + trigger_config.sync_coef)
-        self.fps = 1 / self.spf
         self.n_frames = movie_config.n_frames
 
         self.log += "\nFile: {} \nMovie duration: {} \nn frames: {} \nSampling interval, s: {} \nTrigger time, s: {}".format(
@@ -85,7 +83,7 @@ class DerivativesCalc(Helpers, Debug):
         n_steps_per_epoch = len(self.trigger_config.drs_pattern[0])
         s_epoch_duration = self.trigger_config.step_duration * n_steps_per_epoch
 
-        for i in range((self.trigger_config.start_from_epoch-1), self.trigger_config.n_epochs + (self.trigger_config.start_from_epoch-1)):
+        for i in range(self.trigger_config.start_from_epoch, self.trigger_config.n_epochs + self.trigger_config.start_from_epoch):
             start = self.sec_to_frame(
                 self.s_trig_time + (i * s_epoch_duration) + s_step_shift
             )
@@ -174,7 +172,7 @@ class DerivativesCalc(Helpers, Debug):
                     self.calc_sequence(i, "DERIVATIVES_auto_.tif")
 
         self.logging(
-            f"Taken {self.trigger_config.n_epochs} epochs: {self.trigger_config.start_from_epoch} to {self.trigger_config.n_epochs + (self.trigger_config.start_from_epoch-1)}\n"
+            f"Taken {self.trigger_config.n_epochs} epochs: {self.trigger_config.start_from_epoch} to {self.trigger_config.n_epochs + self.trigger_config.start_from_epoch}\n"
         )
 
         if DEBUG:
