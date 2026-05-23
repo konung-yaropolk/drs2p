@@ -1,11 +1,15 @@
 working_dir: "\\example"
 run_derivatives: true
-run_traces: false
+run_traces: true
+roi_detection: "skip"
+run_csv_multimeasure: false
 
 stim_1_name: "L5-C"
 stim_2_name: "L4-C"
 drs_pattern: [[1, 0], [0, 1]]
 n_epochs: 10
+roi_file_index: 2
+
 
 movies:
   - file_name: "Sample_1_.tif"
@@ -58,3 +62,20 @@ movies:
           drs_pattern: [[1, 0], [1, 1]],
       }
 
+  - file_name: "Sample_4.tif"
+    triggers:
+      - {
+          label: "",
+          trig_number: 1,
+          drs_pattern: [[1, 0, 0, 1, 0, 0], [0, 1, 0, 1, 0, 1]],
+        }
+    events:
+      - - DRS
+        - 21.830342
+    stim_1_name: "A"
+    stim_2_name: "C"
+    n_epochs: 10
+    resp_duration: 0.8
+    seconds_per_frame: 0.1666228947368421
+    movie_duration: 633.167
+    n_frames: 3800
