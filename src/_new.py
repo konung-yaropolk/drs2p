@@ -1,46 +1,3 @@
-import re
-import os
-import argparse
-import traceback
-from ruamel.yaml import YAML
-
-from config import RunConfig, MovieConfig, TriggerConfig
-from trigger import Trigger 
-from helpers import Helpers
-
-def parse_metadata(file_path: str):
-    txt_path = file_path[:-4] + '.txt'
-    with open(txt_path, 'r') as file:
-        trigger = '"[Event '
-        strings = file.readlines()
-
-        string = strings[12]
-        if not string.startswith('"T Dimension"'):
-            raise ValueError
-
-        n_slides = int(re.findall(r'\t"([^[]*), ', string)[0])
-        t_duration = float(re.findall(r'- ([^[]*)\ \[', string)[0])
-        t_resolution = t_duration / n_slides
-
-        events = [
-            (strings[i+1][18:-2], float(strings[i+2][15:-6])/1000)
-            for i, line in enumerate(strings)
-            if trigger in line
-        ]
-
-    return events, t_resolution, t_duration, n_slides
-
-def resolve_configs(child_config, parent_config):
-    """
-    Fill in None fields on child from parent.
-    Резолвить ієрархію атрибутів дата класів
-    """
-    for field_name, value in vars(child_config).items():
-        if value is None and hasattr(parent_config, field_name):
-            parent_value = getattr(parent_config, field_name)
-            if parent_value is not None:
-                setattr(child_config, field_name, parent_value)
-
 def main(config_path):
     #import parsers to read from yaml files
     yaml_parser = YAML()
@@ -71,26 +28,10 @@ def main(config_path):
     # now check each movie and parse metadata if missing this will create movie objects and run the analysis but also  check if the script already had run 
     #and if not it will parse the metadata from the description file (like the timestamps from the events and movie duration etc)
     for i, movie_config in enumerate(run_config.movies):
-        if ((movie_config.events is None) 
-            or (movie_config.seconds_per_frame is None) 
-            or (movie_config.movie_duration is None) 
-            or (movie_config.n_frames is None)):
+        if movie_config.events is None:
             # create Movie once per tiff the metadata reading method is called at the time of initialization 
-            file_path = os.path.join(run_config.working_dir, movie_config.file_name)
-            file_path = os.path.normpath(file_path)
-            try:
-                events, t_resolution, t_duration, n_slides = parse_metadata(file_path)
-            except FileNotFoundError:
-                try: 
-                    h = Helpers()
-                    path = os.path.join(os.path.split(file_path)[0], h.calculate_suffix_and_nosuffix(file_path)[1])
-                    events, t_resolution, t_duration, n_slides = parse_metadata(path + '.tif')
-                except FileNotFoundError:
-                    print(f"Metadata (txt) not found for: {file_path, path + '.tif'}")
-                    continue
-                print(f"Metadata (txt) not found for: {file_path}")
-                continue
-            
+            file_path = os.path.join(run_config.working_dir,movie_config.file_name)
+            events, t_resolution, t_duration, n_slides = parse_metadata(file_path)
             #edit the config file
             movie_config.events = events
             movie_config.seconds_per_frame = t_resolution
@@ -236,14 +177,3 @@ def main(config_path):
     #     except IndexError as e:
     #         print(
     #             'Postprocesssing: Index error - only one timeframe in a boundle so there is nothing to compare')
-
-def entry_point():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--path', required=True, 
-                       help='please, add "--path path/to/your/yaml/file"')
-    args = parser.parse_args()
-    main(config_path=args.path)
-
-# to run the script first act env(e.g. source venv2/bin/activate), then python classes.py --path 'F:/Lab Work Files/2-photon/2025_09_18/experiment.yaml'
-if __name__ == '__main__':
-    entry_point()

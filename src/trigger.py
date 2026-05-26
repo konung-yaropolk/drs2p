@@ -1,5 +1,6 @@
 from derivatives import DerivativesCalc 
 from traces import TracesCalc
+from helpers import Helpers
 from roi_detection import RoiDetector, RoiMeasurer
 import os
 
@@ -14,28 +15,31 @@ class Trigger:
         self.run_config = run_config
         self.movie_config = movie_config
         self.trigger_config = trigger_config
-        self.derivatives = DerivativesCalc(run_config,movie_config,trigger_config)
         self.log = ' \n'
-        self.traces = TracesCalc(run_config,movie_config,trigger_config)
+
         # self.v_shifts = v_shifts
         # self.filters = filters
 
-
-        print(self.movie_config.file_name, '-----------------------------')
-        print(self.trigger_config.sync_coef, '-----------------------------')
-        print(self.movie_config.seconds_per_frame, '-----------------------------')
 
         # initial adjustments:  
         # make start trigger zero-based
         self.trigger_config.start_from_epoch -= 1  
         # apply sync coefficient
-        self.movie_config.movie_duration = self.movie_config.movie_duration * (1 + self.trigger_config.sync_coef)  
-        self.movie_config.seconds_per_frame = self.movie_config.seconds_per_frame * (1 + self.trigger_config.sync_coef)  
-        self.movie_config.fps = 1 / self.movie_config.seconds_per_frame
+        # operate only with adjusted values but write into yaml and csv the original value 
+        # to be consistant with ImageJ metadata and avoid confusion
+        self.movie_config.movie_duration_adjusted = self.movie_config.movie_duration * (1 + self.trigger_config.sync_coef)  
+        self.movie_config.seconds_per_frame_adjusted = self.movie_config.seconds_per_frame * (1 + self.trigger_config.sync_coef)  
+        self.movie_config.fps = 1 / self.movie_config.seconds_per_frame_adjusted
+        # define prefix and suffix
+        self.movie_config.file_path=os.path.join(self.run_config.working_dir, self.movie_config.file_name)
+        self.movie_config.path = os.path.dirname(self.movie_config.file_path)
+        self.movie_config.filename = os.path.basename(self.movie_config.file_path)
+        self.movie_config.filename_suffix, self.movie_config.file_nosuffix = Helpers.calculate_suffix_and_nosuffix(self, self.movie_config.file_path)
 
-        print(self.movie_config.seconds_per_frame, '-----------------------------')
-
-
+        # init Derivatives and Traces classes after adjustments above,
+        # as they are used in derivatives and traces
+        self.derivatives = DerivativesCalc(run_config,movie_config,trigger_config)
+        self.traces = TracesCalc(run_config,movie_config,trigger_config)
 
 
     def run(self):

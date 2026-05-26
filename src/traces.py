@@ -23,11 +23,15 @@ class TracesCalc(Helpers, Debug):
         self.movie_config = movie_config
         self.trigger_config = trigger_config
         self.log = ' \n'
-        self.file_path=os.path.join(run_config.working_dir, movie_config.file_name)
-        self.filename_suffix, self.file_nosuffix = self.calculate_suffix_and_nosuffix(self.file_path)
+
+        self.file_path=self.movie_config.file_path
+        self.path = self.movie_config.path
+        self.file = self.movie_config.filename
+        self.output_suffix = self.trigger_config.label
+        self.filename_suffix = self.movie_config.filename_suffix
+        self.file_nosuffix = self.movie_config.file_nosuffix    
+
         self.s_trig_time = self.movie_config.events[self.trigger_config.trig_number - 1][1]
-        self.output_suffix = "_"+self.trigger_config.label
-        self.path = os.path.dirname(self.file_path)
         self.s_epoch_duration = self.trigger_config.step_duration * len(self.trigger_config.drs_pattern[0])
         self.vertical_shift = trigger_config.vertical_shift
         self.n_steps_per_epoch = len(self.trigger_config.drs_pattern[0])
@@ -137,7 +141,7 @@ class TracesCalc(Helpers, Debug):
         mean_col = self.trigger_config.mean_col_order  # order of "Mean" col in measurments
         n_cols = self.trigger_config.cols_per_roi  # n of measurments for each ROI
 
-        first_col = (str(i * self.movie_config.seconds_per_frame) for i in range(len(content_raw)))
+        first_col = (str(i * self.movie_config.seconds_per_frame_adjusted) for i in range(len(content_raw)))
         content = list(zip(*content_raw))[mean_col::n_cols]
         content[:0] = [first_col]
         content = list(zip(*content))[1:]
@@ -737,14 +741,14 @@ class TracesCalc(Helpers, Debug):
                     * self.trigger_config.step_duration
                     * self.n_steps_per_epoch
                 )
-                / self.movie_config.seconds_per_frame
+                / self.movie_config.seconds_per_frame_adjusted
             ) : int(
                 (
                     (self.trigger_config.start_from_epoch + self.trigger_config.n_epochs + 1)
                     * self.trigger_config.step_duration
                     * self.n_steps_per_epoch
                 )
-                / self.movie_config.seconds_per_frame
+                / self.movie_config.seconds_per_frame_adjusted
             )
         ]
         matrix_T = self.transpose(matrix)

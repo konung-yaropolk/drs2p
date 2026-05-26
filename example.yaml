@@ -15,27 +15,27 @@ resp_duration: 0.8
 
 movies:
 
-# - file_name: "example\\Sample_1_.tif"
-#   triggers:
-#   - {trig_number: 1, label: "DRS", n_epochs: 10, stim_1_name: "A", stim_2_name: "C",
-#     drs_pattern: [[1, 0], [1, 1]]}
-#   movie_duration: 633.167
-#   n_frames: 3800
-#   events:
-#   - - DRS
-#     - 21.485367999999998
-#   seconds_per_frame: 0.1666228947368421
-# - file_name: "example\\Sample_2_.tif"
-#   triggers:
-#   - {trig_number: 1, label: "DRS", start_from_epoch: 1, n_epochs: 10, 
-#       stim_1_name: "A", stim_2_name: "C", drs_pattern: [[1, 0], [1, 1]]}
-#   movie_duration: 249.833
-#   n_frames: 1500
-#   events:
-#   - - DRS
-#     - 24.637732
-#   seconds_per_frame: 0.16655533333333333
-- file_name: 'example\\Sample_3_.tif'
+- file_name: "example\\Sample_1_.tif"
+  triggers:
+  - {trig_number: 1, label: "DRS", n_epochs: 10, stim_1_name: "A", stim_2_name: "C",
+    drs_pattern: [[1, 0], [1, 1]]}
+  movie_duration: 633.167
+  n_frames: 3800
+  events:
+  - - DRS
+    - 21.485367999999998
+  seconds_per_frame: 0.1666228947368421
+- file_name: "example\\Sample_2_.tif"
+  triggers:
+  - {trig_number: 1, label: "DRS", start_from_epoch: 1, n_epochs: 10, 
+      stim_1_name: "A", stim_2_name: "C", drs_pattern: [[1, 0], [1, 1]]}
+  movie_duration: 249.833
+  n_frames: 1500
+  events:
+  - - DRS
+    - 24.637732
+  seconds_per_frame: 0.16655533333333333
+- file_name: 'example\Sample_3_.tif'
   triggers:
   - {trig_number: 1, label: "_Control", start_from_epoch: 1, stim_1_name: 'L5-C',
     stim_2_name: 'L4-C', n_epochs: 11, vertical_shift_of_trig: 0, 
@@ -43,9 +43,7 @@ movies:
   - {trig_number: 13, label: "_Application", start_from_epoch: 1, stim_1_name: 'L5-C',
     stim_2_name: 'L4-C', n_epochs: 11, vertical_shift_of_trig: 1, 
       SD_filter_of_trig: 1, drs_pattern: [[1, 0], [1, 1]]}
-  sync_coef: -0.003
-  movie_duration: 2792.267
-  n_frames: 20943
+  sync_coef: -0.00295
   events:
   - - DRS
     - 24.359704
@@ -75,17 +73,19 @@ movies:
     - 2440.091408
   - - DRS
     - 2731.02313
+  n_frames: 20943
+  movie_duration: 2792.267
   seconds_per_frame: 0.13332698276273694
-# - file_name: "example\\Sample_4.tif"
-#   triggers:
-#   - {label: "", trig_number: 1, drs_pattern: [[1, 0, 0, 1, 0, 0], [0, 1, 0, 1, 0,
-#         1]]}
-#   stim_1_name: "A"
-#   stim_2_name: "C"
-#   n_epochs: 10
-#   movie_duration: 633.167
-#   n_frames: 3800
-#   events:
-#   - - DRS
-#     - 21.830342
-#   seconds_per_frame: 0.1666228947368421
+- file_name: "example\\Sample_4_.tif"
+  triggers:
+  - {label: "", trig_number: 1, drs_pattern: [[1, 0, 0, 1, 0, 0], [0, 1, 0, 1, 0,
+        1]]}
+  stim_1_name: "A"
+  stim_2_name: "C"
+  n_epochs: 10
+  movie_duration: 633.167
+  n_frames: 3800
+  events:
+  - - DRS
+    - 21.830342
+  seconds_per_frame: 0.1666228947368421

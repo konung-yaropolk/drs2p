@@ -149,7 +149,7 @@ class Debug:
         end = start + self.trigger_config.step_duration
         start_frame = int(
             (self.trigger_config.start_from_epoch * self.trigger_config.step_duration * self.n_steps_per_epoch)
-            / self.movie_config.seconds_per_frame
+            / self.movie_config.seconds_per_frame_adjusted
         )
         end_frame = int(
             (
@@ -157,7 +157,7 @@ class Debug:
                 * self.trigger_config.step_duration
                 * n_steps_per_epoch
             )
-            / self.movie_config.seconds_per_frame
+            / self.movie_config.seconds_per_frame_adjusted
         )
 
         chunk = self.csv_matrix[start_frame:end_frame]

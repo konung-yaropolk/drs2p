@@ -31,10 +31,10 @@ class Helpers:
 
         # Find the longest common prefix among the given file and txt files
         common_prefixes = [
-            os.path.commonprefix([file_full_path, txt_file]) for txt_file in txt_files
+            os.path.commonprefix([file_full_path, os.path.splitext(txt_file)[0]]) for txt_file in txt_files
         ]
 
-        file_nosuffix_with_path = max(common_prefixes, key=len).rstrip("_")
+        file_nosuffix_with_path = max(common_prefixes, key=len)
 
         # Remove the directory path from the common prefix
         file_nosuffix = os.path.basename(file_nosuffix_with_path)
@@ -48,7 +48,7 @@ class Helpers:
 
     def frame_to_sec(self, frame: int) -> float:
         """Convert frame to timestamp (start of frame)."""
-        out = frame / self.movie_config.fps if frame <= self.movie_config.n_frames else self.movie_config.movie_duration
+        out = frame / self.movie_config.fps if frame <= self.movie_config.n_frames else self.movie_config.movie_duration_adjusted
         return out
 
     def sec_to_frame(self, timestamp: float) -> int:
@@ -58,7 +58,7 @@ class Helpers:
 
         out = (
             int((timestamp * self.movie_config.fps) // 1)
-            if timestamp <= self.movie_config.movie_duration
+            if timestamp <= self.movie_config.movie_duration_adjusted
             else self.movie_config.n_frames
         )
 

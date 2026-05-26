@@ -28,19 +28,20 @@ class DerivativesCalc(Helpers, Debug):
         self.trigger_config = trigger_config
         self.s_trig_time = self.movie_config.events[self.trigger_config.trig_number - 1][1] #recheck
         self.log = ' \n'
-        self.file_path=os.path.join(run_config.working_dir, movie_config.file_name)
-        self.path = os.path.dirname(self.file_path)
-        self.file = os.path.basename(self.file_path)
+        self.file_path=self.movie_config.file_path
+        self.path = self.movie_config.path
+        self.file = self.movie_config.filename
         self.output_suffix = self.trigger_config.label
-        self.filename_suffix, self.file_nosuffix = self.calculate_suffix_and_nosuffix(self.file_path)
+        self.filename_suffix = self.movie_config.filename_suffix
+        self.file_nosuffix = self.movie_config.file_nosuffix
         #these will be deleted once i deal with the helpers class
-        self.s_movie_duration = movie_config.movie_duration
-        self.n_frames = movie_config.n_frames
+        self.s_movie_duration = self.movie_config.movie_duration_adjusted
+        self.n_frames = self.movie_config.n_frames
 
         self.log += "\nFile: {} \nMovie duration: {} \nn frames: {} \nSampling interval, s: {} \nTrigger time, s: {}".format(
             self.file_path,
-            movie_config.movie_duration,
-            movie_config.n_frames,
+            self.movie_config.movie_duration,
+            self.movie_config.n_frames,
             self.movie_config.seconds_per_frame,
             self.s_trig_time,
         )
@@ -141,7 +142,6 @@ class DerivativesCalc(Helpers, Debug):
         # Open the TIFF image stack
         # rewrite self.n_frames to get actual length of the stack, not just a number from metadata
         self.img = tifffile.imread(self.file_path)
-
         self.n_frames = len(self.img)
 
         s1s2_name_ending = "_DERIVATIVES_auto_{}&{}_{}.tif".format(
@@ -153,6 +153,7 @@ class DerivativesCalc(Helpers, Debug):
         s2_name_ending = "_DERIVATIVES_auto_{}_{}.tif".format(
             self.trigger_config.stim_2_name, self.output_suffix
         )
+
         for i, (A, C) in enumerate(zip(self.trigger_config.drs_pattern[0], self.trigger_config.drs_pattern[1])):
             match (A, C):
                 case (1, 1):
@@ -177,7 +178,6 @@ class DerivativesCalc(Helpers, Debug):
 
         if DEBUG:
             self.debug_sync_during_derivatives()
-
 
          # Different stims - differrent colors
         merger_s1s2_s2 = TifDerivativeProcess(
@@ -215,10 +215,10 @@ class DerivativesCalc(Helpers, Debug):
         #     s1_name_ending,
         #     s1_name_ending,
         #     "_{2}_{1}-red_{0}-cyan_auto_{3}.tif".format(
-        #         self.trigger_config.stim_1_name, self.trigger_config.trigger_config.stim_2_name, self.output_suffix, self.file_nosuffix
+        #         self.trigger_config.stim_1_name, self.trigger_config.stim_2_name, self.output_suffix, self.file_nosuffix
         #     ),
         #     self.trigger_config.stim_1_name,
-        #     self.trigger_config.trigger_config.stim_2_name,
+        #     self.trigger_config.stim_2_name,
         #     self.output_suffix,
         #     ratio_heatmap=ratio_heatmap,
         #     stims_overlap_png=stims_overlap_png,
