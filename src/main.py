@@ -42,6 +42,7 @@ def resolve_configs(child_config, parent_config):
                 setattr(child_config, field_name, parent_value)
 
 def main(config_path):
+    helper = Helpers()
     #import parsers to read from yaml files
     yaml_parser = YAML()
     yaml_parser.preserve_quotes = True
@@ -64,7 +65,7 @@ def main(config_path):
     for movie_config in run_config.movies:
         resolve_configs(movie_config, run_config)
         for trigger_config in movie_config.triggers:
-            resolve_configs(trigger_config, movie_config);
+            resolve_configs(trigger_config, movie_config); 
     
     modified = False
 
@@ -75,21 +76,22 @@ def main(config_path):
             or (movie_config.seconds_per_frame is None) 
             or (movie_config.movie_duration is None) 
             or (movie_config.n_frames is None)):
+
             # create Movie once per tiff the metadata reading method is called at the time of initialization 
             file_path = os.path.join(run_config.working_dir, movie_config.file_name)
             file_path = os.path.normpath(file_path)
             try:
                 events, t_resolution, t_duration, n_slides = parse_metadata(file_path)
             except FileNotFoundError:
-                try: 
-                    h = Helpers()
-                    path = os.path.join(os.path.split(file_path)[0], h.calculate_suffix_and_nosuffix(file_path)[1])
+                try:
+                    path = os.path.join(os.path.split(file_path)[0], helper.calculate_suffix_and_nosuffix(file_path)[1])
                     events, t_resolution, t_duration, n_slides = parse_metadata(path + '.tif')
                 except FileNotFoundError:
-                    print(f"Metadata (txt) not found for: {file_path, path + '.tif'}")
+                    # delete the movie from the config to avoid errors in the rest of the script, 
+                    # if there is not full metadata in YAML and no txt present
+                    run_config.movies.remove(movie_config)
+                    print(f"YAML not full and metadata (txt) not found for movie: {file_path}")
                     continue
-                print(f"Metadata (txt) not found for: {file_path}")
-                continue
             
             #edit the config file
             movie_config.events = events
@@ -108,6 +110,28 @@ def main(config_path):
         with open(config_path, 'w') as file:
             yaml_parser.dump(raw, file)  # preserves formatting
     
+
+    # initial input adjustments that lives only when script runs and need to be calculated once in a run
+    # but not recalculated in each trigger nor written into yaml 
+    # like the adjusted movie duration and seconds per frame after applying sync coefficient 
+    # and also the prefix and suffix for the file name that are used in the derivatives and traces calculation 
+    # and also the start_from_epoch that is made zero-based for easier calculations later on
+    for movie_config in run_config.movies:
+        # apply sync coefficient
+        # operate only with adjusted values but write into yaml and csv the original value 
+        # to be consistant with ImageJ metadata and avoid confusion
+        movie_config.movie_duration_adjusted = movie_config.movie_duration * (1 + trigger_config.sync_coef)  
+        movie_config.seconds_per_frame_adjusted = movie_config.seconds_per_frame * (1 + trigger_config.sync_coef)  
+        movie_config.fps_adjusted = 1 / movie_config.seconds_per_frame_adjusted
+        # define prefix and suffix
+        movie_config.file_path=os.path.join(run_config.working_dir, movie_config.file_name)
+        movie_config.path = os.path.dirname(movie_config.file_path)
+        movie_config.filename = os.path.basename(movie_config.file_path)
+        movie_config.filename_suffix, movie_config.file_nosuffix = helper.calculate_suffix_and_nosuffix(movie_config.file_path)
+        # make start trigger zero-based
+        for trigger_config in movie_config.triggers:
+            trigger_config.start_from_epoch -= 1  
+
 
     # v_shifts = {}
     # filters = {}

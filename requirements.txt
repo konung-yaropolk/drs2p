@@ -6,7 +6,7 @@ seaborn
 scikit-posthocs
 scikit-image
 pandas
-AutoStatLib>=0.4.0
+AutoStatLib>=0.4.1
 ruamel.yaml
 tifffile
 roifile

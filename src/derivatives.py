@@ -26,7 +26,7 @@ class DerivativesCalc(Helpers, Debug):
         self.run_config = run_config
         self.movie_config = movie_config
         self.trigger_config = trigger_config
-        self.s_trig_time = self.movie_config.events[self.trigger_config.trig_number - 1][1] #recheck
+        self.s_trig_time = self.movie_config.events[self.trigger_config.trig_number-1][1] #recheck
         self.log = ' \n'
         self.file_path=self.movie_config.file_path
         self.path = self.movie_config.path

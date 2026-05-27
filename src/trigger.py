@@ -20,27 +20,10 @@ class Trigger:
         # self.v_shifts = v_shifts
         # self.filters = filters
 
-
-        # initial adjustments:  
-        # make start trigger zero-based
-        self.trigger_config.start_from_epoch -= 1  
-        # apply sync coefficient
-        # operate only with adjusted values but write into yaml and csv the original value 
-        # to be consistant with ImageJ metadata and avoid confusion
-        self.movie_config.movie_duration_adjusted = self.movie_config.movie_duration * (1 + self.trigger_config.sync_coef)  
-        self.movie_config.seconds_per_frame_adjusted = self.movie_config.seconds_per_frame * (1 + self.trigger_config.sync_coef)  
-        self.movie_config.fps = 1 / self.movie_config.seconds_per_frame_adjusted
-        # define prefix and suffix
-        self.movie_config.file_path=os.path.join(self.run_config.working_dir, self.movie_config.file_name)
-        self.movie_config.path = os.path.dirname(self.movie_config.file_path)
-        self.movie_config.filename = os.path.basename(self.movie_config.file_path)
-        self.movie_config.filename_suffix, self.movie_config.file_nosuffix = Helpers.calculate_suffix_and_nosuffix(self, self.movie_config.file_path)
-
         # init Derivatives and Traces classes after adjustments above,
         # as they are used in derivatives and traces
         self.derivatives = DerivativesCalc(run_config,movie_config,trigger_config)
         self.traces = TracesCalc(run_config,movie_config,trigger_config)
-
 
     def run(self):
         if self.trigger_config.run_derivatives: 

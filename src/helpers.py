@@ -48,7 +48,7 @@ class Helpers:
 
     def frame_to_sec(self, frame: int) -> float:
         """Convert frame to timestamp (start of frame)."""
-        out = frame / self.movie_config.fps if frame <= self.movie_config.n_frames else self.movie_config.movie_duration_adjusted
+        out = frame / self.movie_config.fps_adjusted if frame <= self.movie_config.n_frames else self.movie_config.movie_duration_adjusted
         return out
 
     def sec_to_frame(self, timestamp: float) -> int:
@@ -57,7 +57,7 @@ class Helpers:
         #     raise ValueError("Timestamp must be non-negative")
 
         out = (
-            int((timestamp * self.movie_config.fps) // 1)
+            int((timestamp * self.movie_config.fps_adjusted) // 1)
             if timestamp <= self.movie_config.movie_duration_adjusted
             else self.movie_config.n_frames
         )
