@@ -170,7 +170,7 @@ def main(config_path):
             #     # print(trigger_analysis.log)
             
             except Exception as e:
-                print(f'Error in trigger {trigger.trig_number} '
+                print(f'Error in movie {movie_config.file_name} trigger {trigger.trig_number} '
                       f'({trigger.label}): {repr(e)}'
                       f'\n{traceback.format_exc()}')
             
