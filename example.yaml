@@ -17,7 +17,7 @@ movies:
 
 - file_name: "example\\Sample_1_.tif"
   triggers:
-  - {trig_number: 1, label: "DRS", n_epochs: 10, stim_1_name: "A", stim_2_name: "C",
+  - {trig_number: 1, n_epochs: 10, stim_1_name: "A", stim_2_name: "C",
     drs_pattern: [[1, 0], [1, 1]]}
   movie_duration: 633.167
   n_frames: 3800
@@ -27,7 +27,7 @@ movies:
   seconds_per_frame: 0.1666228947368421
 - file_name: "example\\Sample_2_.tif"
   triggers:
-  - {trig_number: 1, label: "DRS", start_from_epoch: 1, n_epochs: 10, 
+  - {trig_number: 1, start_from_epoch: 1, n_epochs: 10, 
       stim_1_name: "A", stim_2_name: "C", drs_pattern: [[1, 0], [1, 1]]}
   movie_duration: 249.833
   n_frames: 1500
