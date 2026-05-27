@@ -173,6 +173,7 @@ class TracesCalc(Helpers, Debug):
         ampl_list = []
         auc_list = []
         bin_list = []
+        snr_list = [] # saignal-to-noise ratio list, in ampl/std of baseline
         raw_line_list = [x[whole_step_indices] - start]
 
         for trace in traces:
@@ -186,17 +187,36 @@ class TracesCalc(Helpers, Debug):
             # AUC in signal period
             auc = np.trapezoid(corrected_trace[sig_indices], x[sig_indices])
             auc_list.append(auc)
-            # biarization
+            # Signal-to-noise ratio
+            snr_list.append(ampl /  np.std(trace[bl_indices]))
+            # Binarization
             bin_list.append(ampl > self.trigger_config.sigmas_treshold * np.std(trace[bl_indices]))
 
             raw_line_list.append(corrected_trace[whole_step_indices])
 
-            # Debug plot
-            # self.logging(ampl > self.trigger_config.sigmas_treshold *
-            #                 np.std(trace[bl_indices]))
-            # plt.plot(corrected_trace[whole_step_indices])
-            # plt.show()
-            # plt.close()
+            # # Debug responce binarization 
+            # # needed only during dev
+            # print(f"Signal/Noise {ampl /  np.std(trace[bl_indices]):.2f} sigmas; Current responce considered: {ampl > self.trigger_config.sigmas_treshold * 
+            #                               np.std(trace[bl_indices])}")
+            # self.plot_traces(
+            #     whole_step_indices,
+            #     [corrected_trace[whole_step_indices]],
+            #     [[bl_indices[0],bl_indices[-1]], [sig_indices[0],sig_indices[-1]]],
+            #     ".png",
+            #     save=False,
+            #     show=True,
+            #     average=False,
+            #     linewidth=1.5,
+            #     linecolor="darkcyan",
+            #     fillcolor="violet",
+            #     event_linecolor="orchid",
+            #     event_linestyle="-",
+            #     avg_linecolor="darkcyan",
+            #     alpha=0.5,
+            #     fillalpha=0.5,
+            #     dpi=100,
+            #     figsize=(5, 5),
+            # )
 
         # Calculate mean amplitude and AUC across all traces
         ampl_mean_of_rois = np.mean(ampl_list)
@@ -208,6 +228,7 @@ class TracesCalc(Helpers, Debug):
             auc_mean_of_rois,
             auc_list,
             bin_list,
+            snr_list,
             raw_line_list,
         )
 
@@ -220,6 +241,7 @@ class TracesCalc(Helpers, Debug):
             auc_mean_of_rois_by_epoch,
             auc_list_each_by_roi,
             bin_list_each_by_roi,
+            snr_list_each_by_roi,
             raw_line_list,
         ) = [
             [
@@ -231,12 +253,13 @@ class TracesCalc(Helpers, Debug):
                 )[j]
                 for i in range(self.trigger_config.start_from_epoch, self.trigger_config.n_epochs)
             ]
-            for j in range(6)
+            for j in range(7)
         ]
 
         ampl_list_each_by_epoch = self.transpose(ampl_list_each_by_roi)
         auc_list_each_by_epoch = self.transpose(auc_list_each_by_roi)
         bin_list_each_by_epoch = self.transpose(bin_list_each_by_roi)
+        snr_list_each_by_epoch = self.transpose(snr_list_each_by_roi)
         ampl_mean_of_epochs_by_rois = [
             np.mean(epoch) for epoch in ampl_list_each_by_epoch
         ]
@@ -254,6 +277,7 @@ class TracesCalc(Helpers, Debug):
             auc_list_each_by_roi,
             auc_list_each_by_epoch,
             bin_list_each_by_epoch,
+            snr_list_each_by_epoch,
             raw_line_list,
         )
 
@@ -321,6 +345,7 @@ class TracesCalc(Helpers, Debug):
                         s1s2_auc_list_each_by_roi,
                         s1s2_auc_list_each_by_epoch,
                         s1s2_bin_list_each_by_epoch,
+                        s1s2_snr_list_each_by_epoch,
                         s1s2_raw_line_list,
                     ) = self.calc_traces_sequence(i)
                     self.s1s2_delay = i * self.trigger_config.step_duration
@@ -338,6 +363,7 @@ class TracesCalc(Helpers, Debug):
                         s1_auc_list_each_by_roi,
                         s1_auc_list_each_by_epoch,
                         s1_bin_list_each_by_epoch,
+                        s1_snr_list_each_by_epoch,
                         s1_raw_line_list,
                     ) = self.calc_traces_sequence(i)
                     self.s1_delay = i * self.trigger_config.step_duration
@@ -355,6 +381,7 @@ class TracesCalc(Helpers, Debug):
                         s2_auc_list_each_by_roi,
                         s2_auc_list_each_by_epoch,
                         s2_bin_list_each_by_epoch,
+                        s2_snr_list_each_by_epoch,
                         s2_raw_line_list,
                     ) = self.calc_traces_sequence(i)
                     self.s2_delay = i * self.trigger_config.step_duration
@@ -556,6 +583,33 @@ class TracesCalc(Helpers, Debug):
                 self.output_suffix,
             ),
         )
+
+
+        # outputs:
+        os.makedirs(f"{csv_path}{output_dir}/outputs_{self.output_suffix}_{output_dir}/", exist_ok=True)
+
+        def write_metrics(stim_label, snr_data, ampl_data, auc_data):
+            for metric, data in [("SNR", snr_data), ("Ampl", ampl_data), ("AUC", auc_data)]:
+                self.csv_write(
+                    data,
+                    csv_path + output_dir,
+                    output_dir,
+                    f"outputs_{self.output_suffix}_{output_dir}/_{metric}_{stim_label}_rows-roi_cols-epoch_{self.output_suffix}_auto_",
+                )
+
+        s1_name = self.trigger_config.stim_1_name
+        s2_name = self.trigger_config.stim_2_name
+
+        if s1s2:
+            write_metrics(f"{s1_name}&{s2_name}", s1s2_snr_list_each_by_epoch, s1s2_ampl_list_each_by_epoch, s1s2_auc_list_each_by_epoch)
+        if s1:
+            write_metrics(s1_name, s1_snr_list_each_by_epoch, s1_ampl_list_each_by_epoch, s1_auc_list_each_by_epoch)
+        if s2:
+            write_metrics(s2_name, s2_snr_list_each_by_epoch, s2_ampl_list_each_by_epoch, s2_auc_list_each_by_epoch)
+
+
+
+
 
         # csv file of #1#2 and #2 amplitudes by rois epochs average
         header = [self.group_names[0], self.group_names[1], "ratio col1/col2"]

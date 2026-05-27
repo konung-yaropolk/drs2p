@@ -154,6 +154,8 @@ class Helpers:
         cols,
         events,
         savename,
+        show=False,
+        save=True,
         average=True,
         offset=0,
         figsize=(15, 5),
@@ -229,12 +231,16 @@ class Helpers:
 
         # Save the combined figure
 
-        if isinstance(savename, str):
-            plt.savefig(savename, transparent=False)
-        elif isinstance(savename, list) or isinstance(savename, tuple):
-            for name in savename:
-                plt.savefig(name, transparent=False)
-        else:
-            self.logging("!!!    Fail: invalid savename type        ", type(savename))
+        if save:
+            if isinstance(savename, str):
+                plt.savefig(savename, transparent=False)
+            elif isinstance(savename, list) or isinstance(savename, tuple):
+                for name in savename:
+                    plt.savefig(name, transparent=False)
+            else:
+                self.logging("!!!    Fail: invalid savename type        ", type(savename))
+
+        if show:
+            plt.show()
 
         plt.close()
