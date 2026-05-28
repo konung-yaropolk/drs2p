@@ -31,10 +31,10 @@ class Helpers:
 
         # Find the longest common prefix among the given file and txt files
         common_prefixes = [
-            os.path.commonprefix([file_full_path, txt_file]) for txt_file in txt_files
+            os.path.commonprefix([file_full_path, os.path.splitext(txt_file)[0]]) for txt_file in txt_files
         ]
 
-        file_nosuffix_with_path = max(common_prefixes, key=len).rstrip("_")
+        file_nosuffix_with_path = max(common_prefixes, key=len)
 
         # Remove the directory path from the common prefix
         file_nosuffix = os.path.basename(file_nosuffix_with_path)
@@ -48,7 +48,7 @@ class Helpers:
 
     def frame_to_sec(self, frame: int) -> float:
         """Convert frame to timestamp (start of frame)."""
-        out = frame / self.fps if frame <= self.n_frames else self.s_movie_duration
+        out = frame / self.movie_config.fps_adjusted if frame <= self.movie_config.n_frames else self.movie_config.movie_duration_adjusted
         return out
 
     def sec_to_frame(self, timestamp: float) -> int:
@@ -57,9 +57,9 @@ class Helpers:
         #     raise ValueError("Timestamp must be non-negative")
 
         out = (
-            int((timestamp * self.fps) // 1)
-            if timestamp <= self.s_movie_duration
-            else self.n_frames
+            int((timestamp * self.movie_config.fps_adjusted) // 1)
+            if timestamp <= self.movie_config.movie_duration_adjusted
+            else self.movie_config.n_frames
         )
 
         return out
@@ -154,6 +154,8 @@ class Helpers:
         cols,
         events,
         savename,
+        show=False,
+        save=True,
         average=True,
         offset=0,
         figsize=(15, 5),
@@ -229,12 +231,16 @@ class Helpers:
 
         # Save the combined figure
 
-        if isinstance(savename, str):
-            plt.savefig(savename, transparent=False)
-        elif isinstance(savename, list) or isinstance(savename, tuple):
-            for name in savename:
-                plt.savefig(name, transparent=False)
-        else:
-            self.logging("!!!    Fail: invalid savename type        ", type(savename))
+        if save:
+            if isinstance(savename, str):
+                plt.savefig(savename, transparent=False)
+            elif isinstance(savename, list) or isinstance(savename, tuple):
+                for name in savename:
+                    plt.savefig(name, transparent=False)
+            else:
+                self.logging("!!!    Fail: invalid savename type        ", type(savename))
+
+        if show:
+            plt.show()
 
         plt.close()

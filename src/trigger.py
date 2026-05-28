@@ -1,5 +1,6 @@
 from derivatives import DerivativesCalc 
 from traces import TracesCalc
+from helpers import Helpers
 from roi_detection import RoiDetector, RoiMeasurer
 import os
 
@@ -14,11 +15,16 @@ class Trigger:
         self.run_config = run_config
         self.movie_config = movie_config
         self.trigger_config = trigger_config
-        self.derivatives = DerivativesCalc(run_config,movie_config,trigger_config)
         self.log = ' \n'
-        self.traces = TracesCalc(run_config,movie_config,trigger_config)
+
         # self.v_shifts = v_shifts
         # self.filters = filters
+
+        # init Derivatives and Traces classes after adjustments above,
+        # as they are used in derivatives and traces
+        self.derivatives = DerivativesCalc(run_config,movie_config,trigger_config)
+        self.traces = TracesCalc(run_config,movie_config,trigger_config)
+
     def run(self):
         if self.trigger_config.run_derivatives: 
             self.derivatives.run()

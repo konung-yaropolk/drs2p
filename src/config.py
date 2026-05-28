@@ -4,9 +4,9 @@ from dataclasses import dataclass, field, asdict
 # RunConfig = single source of truth for all defaults these are a source of defaults unless other configs specify otherwise
 @dataclass  
 class TriggerConfig:
-    #required and trigger specific
-    label: str
-    trig_number: int
+    #optional and trigger specific
+    trig_number: int = 1
+    label: Optional[str] = ""
     #pipeline control
     run_derivatives: Optional[bool] = None
     run_traces: Optional[bool] = None
@@ -97,6 +97,16 @@ class MovieConfig: #since one yaml can specify multipl experiments, there is a s
     seconds_per_frame: Optional[float] = None
     movie_duration: Optional[float] = None
     n_frames: Optional[int] = None
+
+    # parameters that will be calculated from the above parameters and used for the calculations, but not written back to yaml since they are not needed to be stored
+    seconds_per_frame_adjusted: Optional[float] = None # seconds per frame to be adjusted for the sync_coef
+    fps_adjusted: Optional[float] = None # frames per second to be adjusted for the sync_coef
+    movie_duration_adjusted: Optional[float] = None # movie duration to be adjusted for the sync_coef
+    file_path: Optional[str] = None # full path to the movie file, filled out after yaml loading
+    path: Optional[str] = None # path to the folder containing the movie file, filled out after yaml loading
+    filename: Optional[str] = None # file name without extension, filled out after yaml loading
+    filename_suffix: Optional[str] = None # file name suffix, filled out after yaml loading, for example for "movie1_stim1.tif" the suffix will be "_stim1"
+    file_nosuffix: Optional[str] = None # file name without suffix, filled out after yaml loading, for example for "movie1_stim1.tif" the file_nosuffix will be "movie1"
 
     #movie specific not optuinal
     triggers: list[TriggerConfig] = field(default_factory=list) # since one yaml can specify multipl experiments, there is a separate class for experiment configs and separate for the whole run config file
