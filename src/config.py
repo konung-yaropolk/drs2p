@@ -5,7 +5,7 @@ from dataclasses import dataclass, field, asdict
 @dataclass  
 class TriggerConfig:
     #optional and trigger specific
-    trig_number: Optional[int] = 1
+    trig_number: int = 1
     label: Optional[str] = ""
     #pipeline control
     run_derivatives: Optional[bool] = None
