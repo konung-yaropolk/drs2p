@@ -719,32 +719,38 @@ class TracesCalc(Helpers, Debug):
         self.plot_s1s2_s2_roi_stats(
             self.filter_list(st1_auc_mean_of_epochs_by_rois, filter[2], replace=False),
             self.filter_list(st2_auc_mean_of_epochs_by_rois, filter[2], replace=False),
-            "{0}{1}/_by_rois_{2}_{3}_{4}_auc_auto_.png".format(
+            "{0}{1}/_by_rois_{2}_{3}{4}_{4}_auc_auto_.png".format(
                 csv_path,
                 output_dir,
-                self.group_names[0],
-                self.group_names[1],
+                self.trigger_config.stim_1_name,
+                self.trigger_config.stim_2_name,
                 self.output_suffix,
             ),
             paired=True,
             y_label="AUC",
-            Groups_Name=[self.group_names[0], self.group_names[1]],
+            Groups_Name=[
+                        "{}+{}".format(self.trigger_config.stim_1_name, self.trigger_config.stim_2_name),
+                        self.trigger_config.stim_2_name,
+                    ],
         )
 
         # plot_s1s2_s2_roi_stats Ampl for all rois
         self.plot_s1s2_s2_roi_stats(
             self.filter_list(st1_ampl_mean_of_epochs_by_rois, filter[2], replace=False),
             self.filter_list(st2_ampl_mean_of_epochs_by_rois, filter[2], replace=False),
-            "{0}{1}/_by_rois_{2}_{3}_{4}_ampl_auto_.png".format(
+            "{0}{1}/_by_rois_{2}_{3}{4}_{4}_ampl_auto_.png".format(
                 csv_path,
                 output_dir,
-                self.group_names[0],
-                self.group_names[1],
+                self.trigger_config.stim_1_name,
+                self.trigger_config.stim_2_name,
                 self.output_suffix,
             ),
             paired=True,
             y_label="ΔF/F₀",
-            Groups_Name=[self.group_names[0], self.group_names[1]],
+            Groups_Name=[
+                        "{}+{}".format(self.trigger_config.stim_1_name, self.trigger_config.stim_2_name),
+                        self.trigger_config.stim_2_name,
+                    ],
         )
 
         # plot_s1s2_s2_roi_stats for each roi during timeline

@@ -3,6 +3,7 @@ run_derivatives: true
 run_traces: true
 roi_detection: "skip"
 run_csv_multimeasure: false
+fiji_path: "/Applications/Fiji/Fiji.app/Contents/MacOS/fiji-macos-arm64"
 
 stim_1_name: "L5-C"
 stim_2_name: "L4-C"
