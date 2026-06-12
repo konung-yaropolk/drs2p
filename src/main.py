@@ -269,7 +269,7 @@ def main(config_path):
 def entry_point():
     parser = argparse.ArgumentParser()
     parser.add_argument('--path', required=True, nargs='+',
-                       help='please, add "--path path/to/your/yaml/file [path2 ...]"')
+                       help='please, add "--path path/to/your/yaml/file1 path/to/your/yaml/file2 ... etc."')
     args = parser.parse_args()
     for config_path in args.path:
         main(config_path=config_path)
