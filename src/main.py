@@ -63,6 +63,7 @@ def adjust_config_params(run_config, movie_config, trigger_config, helper):
             trigger_config.start_from_epoch -= 1 
 
 def main(config_path):
+    print(f"\nProcessing config file: {config_path}\n")
     helper = Helpers()
     #import parsers to read from yaml files
     yaml_parser = YAML()
@@ -267,10 +268,11 @@ def main(config_path):
 
 def entry_point():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--path', required=True, 
-                       help='please, add "--path path/to/your/yaml/file"')
+    parser.add_argument('--path', required=True, nargs='+',
+                       help='please, add "--path path/to/your/yaml/file [path2 ...]"')
     args = parser.parse_args()
-    main(config_path=args.path)
+    for config_path in args.path:
+        main(config_path=config_path)
 
 # to run the script first act env(e.g. source venv2/bin/activate), then python classes.py --path 'F:/Lab Work Files/2-photon/2025_09_18/experiment.yaml'
 if __name__ == '__main__':
