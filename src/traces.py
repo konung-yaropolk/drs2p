@@ -588,8 +588,8 @@ class TracesCalc(Helpers, Debug):
         # outputs:
         os.makedirs(f"{csv_path}{output_dir}/outputs_{self.output_suffix}_{output_dir}/", exist_ok=True)
 
-        def write_metrics(stim_label, snr_data, ampl_data, auc_data):
-            for metric, data in [("SNR", snr_data), ("Ampl", ampl_data), ("AUC", auc_data)]:
+        def write_metrics(stim_label, snr_data, ampl_data, auc_data, bin_data):
+            for metric, data in [("SNR", snr_data), ("Ampl", ampl_data), ("AUC", auc_data), ("Bin", bin_data)]:
                 self.csv_write(
                     data,
                     csv_path + output_dir,
@@ -601,11 +601,11 @@ class TracesCalc(Helpers, Debug):
         s2_name = self.trigger_config.stim_2_name
 
         if s1s2:
-            write_metrics(f"{s1_name}&{s2_name}", s1s2_snr_list_each_by_epoch, s1s2_ampl_list_each_by_epoch, s1s2_auc_list_each_by_epoch)
+            write_metrics(f"{s1_name}&{s2_name}", s1s2_snr_list_each_by_epoch, s1s2_ampl_list_each_by_epoch, s1s2_auc_list_each_by_epoch, s1s2_bin_list_each_by_epoch)
         if s1:
-            write_metrics(s1_name, s1_snr_list_each_by_epoch, s1_ampl_list_each_by_epoch, s1_auc_list_each_by_epoch)
+            write_metrics(s1_name, s1_snr_list_each_by_epoch, s1_ampl_list_each_by_epoch, s1_auc_list_each_by_epoch, s1_bin_list_each_by_epoch)
         if s2:
-            write_metrics(s2_name, s2_snr_list_each_by_epoch, s2_ampl_list_each_by_epoch, s2_auc_list_each_by_epoch)
+            write_metrics(s2_name, s2_snr_list_each_by_epoch, s2_ampl_list_each_by_epoch, s2_auc_list_each_by_epoch, s2_bin_list_each_by_epoch)
 
 
 
