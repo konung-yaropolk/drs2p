@@ -63,15 +63,15 @@ def adjust_config_params(run_config, movie_config, trigger_config, helper):
             trigger_config.start_from_epoch -= 1 
 
 def main(config_path):
-    print(f"\nProcessing config file: {config_path}\n")
+    print(f"\nWorking on workflow: {config_path}\n")
     helper = Helpers()
-    #import parsers to read from yaml files
+    # import parsers to read from yaml files
     yaml_parser = YAML()
     yaml_parser.preserve_quotes = True
-    #oarse yaml file
+    # parse yaml file
     with open(config_path) as file:
         raw = yaml_parser.load(file)
-    #populate the data objects: RunConfig, MovieConfig, TriggerConfig - 
+    # populate the data objects: RunConfig, MovieConfig, TriggerConfig - 
     run_config = RunConfig(
         movies=[
             MovieConfig(
@@ -94,10 +94,12 @@ def main(config_path):
     # now check each movie and parse metadata if missing this will create movie objects and run the analysis but also  check if the script already had run 
     #and if not it will parse the metadata from the description file (like the timestamps from the events and movie duration etc)
     for i, movie_config in enumerate(run_config.movies):
+        print(f"Processing movie: {movie_config.file_name}")
         if ((movie_config.events is None) 
             or (movie_config.seconds_per_frame is None) 
             or (movie_config.movie_duration is None) 
             or (movie_config.n_frames is None)):
+            print(f"--some entries are missing in YAML, parsing metadata from TXT")
 
             # create Movie once per tiff the metadata reading method is called at the time of initialization 
             file_path = os.path.join(run_config.working_dir, movie_config.file_name)
