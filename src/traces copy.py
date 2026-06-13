@@ -74,90 +74,78 @@ class TracesCalc(Helpers, Debug):
         return files
 
     def find_time_index(self, content, time):
-        # content is a list-of-rows; column 0 is the time axis.
-        # Extract it as a float array and use np.argmin — one vectorized call
-        # instead of a generator + Python list comprehension + linear scan.
-        time_col = np.asarray([float(row[0]) for row in content])
-        return int(np.argmin(np.abs(time_col - time)))
+        content = (float(i) - time for i in list(zip(*content))[0])
+        diffs = [abs(i) for i in content]
+        index = diffs.index(min(diffs))
+
+        return index
 
     def data_normalize(self, content, start, zero):
-        # content: list of columns (each column is a sequence of numeric-string or float values).
-        # Convert once to a 2-D float array: shape (n_rois, n_frames).
-        arr = np.array(content, dtype=float)   # single allocation + type conversion
+        content_normalized = []
 
-        # Baseline slice for every ROI simultaneously
-        baseline = arr[:, start:zero]          # shape (n_rois, baseline_len)
-        means = baseline.mean(axis=1, keepdims=True)  # shape (n_rois, 1)
+        for column in content:
+            baseline = column[start:zero]
+            baseline_sum = sum((float(cell) for cell in baseline))
+            baseline_len = len(baseline)
+            mean = baseline_sum / baseline_len if baseline_len and baseline else 0
 
-        # Avoid division by zero — same semantics as the original (result = 0 when mean=0)
-        safe_means = np.where(means == 0, 1.0, means)
-        normalized = np.where(means == 0, 0.0, (arr - means) / safe_means)  # ΔF/F₀
+            column_normalized = [
+                (float(cell) - mean) / mean if mean else 0 for cell in column
+            ]  # ΔF/F₀
+            # column_normalized = [float(cell)/mean if mean else 1 for cell in column]   # ΔF/F
 
-        # Return as list-of-lists to keep downstream code unchanged
-        return normalized.tolist()
+            content_normalized.append(column_normalized)
+
+        return content_normalized
 
     def csv_cutter(self, content):
-        # content: list of rows (each row = [time, roi1, roi2, ...]) as strings.
-        # Convert the whole block to a float array once: shape (n_frames, n_cols).
-        arr = np.array(content, dtype=float)
-        time_col = arr[:, 0]                   # shape (n_frames,)
-
-        # All index lookups now operate on the pre-converted float array.
-        def _nearest(t):
-            return int(np.argmin(np.abs(time_col - t)))
+        timeline_zero = (float(i) - self.s_trig_time for i in list(zip(*content))[0])
 
         start = (
-            _nearest(self.s_trig_time - self.trigger_config.time_before_trig)
+            self.find_time_index(content, self.s_trig_time - self.trigger_config.time_before_trig)
             if self.trigger_config.time_before_trig
             else None
         )
+
         start_bl = (
-            _nearest(self.s_trig_time - self.trigger_config.baseline_duraton)
+            self.find_time_index(content, self.s_trig_time - self.trigger_config.baseline_duraton)
             if self.trigger_config.baseline_duraton
             else start
         )
-        zero  = _nearest(self.s_trig_time)
-        end   = (
-            _nearest(self.s_trig_time + self.trigger_config.time_after_trig)
+
+        zero = self.find_time_index(content, self.s_trig_time)
+
+        end = (
+            self.find_time_index(content, self.s_trig_time + self.trigger_config.time_after_trig)
             if self.trigger_config.time_after_trig
             else None
         )
 
-        # Build the output block: first column is time re-zeroed to trigger.
-        # Remaining columns are ROI traces, optionally normalized.
-        timeline_zero = time_col - self.s_trig_time   # shape (n_frames,)
-        roi_data = arr[:, 1:].T                        # shape (n_rois, n_frames)
+        content = list(zip(*content))[1:]
+        content[:0] = [timeline_zero]
 
         if self.trigger_config.relative_values:
-            roi_data = np.array(
-                self.data_normalize(roi_data.tolist(), start_bl, zero),
-                dtype=float,
-            )
+            content[1:] = self.data_normalize(content[1:], start_bl, zero)
 
-        # Reassemble as (n_frames, n_cols) then slice the time window
-        out = np.column_stack([timeline_zero, roi_data.T])  # (n_frames, 1+n_rois)
-        return out[start:end]
+        csv_output = list(zip(*content))[start:end]
+        csv_output_np = np.array(csv_output)
 
-    def csv_transform(self, content_raw):
-        mean_col = self.trigger_config.mean_col_order   # "Mean" column index
-        n_cols   = self.trigger_config.cols_per_roi     # measurements per ROI
+        return csv_output_np
 
-        # Parse the full CSV block into a float array once.
-        # content_raw is a tuple-of-tuples of strings; skip the header row (row 0).
-        # Shape after skip: (n_frames, total_cols).
-        raw_arr = np.array(content_raw[1:], dtype=float)
+    def csv_transform(
+        self,
+        content_raw,
+    ):
 
-        # Extract only the "Mean" columns for each ROI: columns mean_col, mean_col+n_cols, ...
-        roi_means = raw_arr[:, mean_col::n_cols]  # shape (n_frames, n_rois)
+        mean_col = self.trigger_config.mean_col_order  # order of "Mean" col in measurments
+        n_cols = self.trigger_config.cols_per_roi  # n of measurments for each ROI
 
-        # Build the time axis as a float array — no string conversion needed.
-        n_frames   = roi_means.shape[0]
-        time_col   = np.arange(n_frames) * self.movie_config.seconds_per_frame_adjusted
+        first_col = (str(i * self.movie_config.seconds_per_frame_adjusted) for i in range(len(content_raw)))
+        content = list(zip(*content_raw))[mean_col::n_cols]
+        content[:0] = [first_col]
+        content = list(zip(*content))[1:]
 
-        # Return list-of-rows: each row = [time, roi1_mean, roi2_mean, ...]
-        # so that csv_cutter receives the same structure it always did.
-        out = np.column_stack([time_col, roi_means])  # (n_frames, 1+n_rois)
-        return out.tolist()
+        return content
 
     def csv_read(self, csv_path, csv_file):
 
@@ -525,26 +513,26 @@ class TracesCalc(Helpers, Debug):
             self.group_names.insert(0, "_")
 
         if not s1 and s1s2:
-            st1_bin_summary_by_rois = (
-                np.array(s1s2_bin_list_each_by_epoch, dtype=float).mean(axis=1)
-                > BINARIZATION_RESP_THRESHOLD
-            ).tolist()
+            st1_bin_summary_by_rois = [
+                sum(i) / len(i) > BINARIZATION_RESP_THRESHOLD
+                for i in s1s2_bin_list_each_by_epoch
+            ]
         if not s1s2 and s1:
-            st1_bin_summary_by_rois = (
-                np.array(s1_bin_list_each_by_epoch, dtype=float).mean(axis=1)
-                > BINARIZATION_RESP_THRESHOLD
-            ).tolist()
+            st1_bin_summary_by_rois = [
+                sum(i) / len(i) > BINARIZATION_RESP_THRESHOLD
+                for i in s1_bin_list_each_by_epoch
+            ]
         # fix for case with 'long' stim patterns when s1, s1s2, and s2 are presented all
-        # ugly construction, but it works, and I don't have time to refactor it now
+        # ugly cinstruction, but it works, and I don't have time to refactor it now
         if s1 and s1s2:
-            st1_bin_summary_by_rois = (
-                np.array(s1s2_bin_list_each_by_epoch, dtype=float).mean(axis=1)
-                > BINARIZATION_RESP_THRESHOLD
-            ).tolist()
-        st2_bin_summary_by_rois = (
-            np.array(s2_bin_list_each_by_epoch, dtype=float).mean(axis=1)
-            > BINARIZATION_RESP_THRESHOLD
-        ).tolist()
+            st1_bin_summary_by_rois = [
+                sum(i) / len(i) > BINARIZATION_RESP_THRESHOLD
+                for i in s1s2_bin_list_each_by_epoch
+            ]
+        st2_bin_summary_by_rois = [
+            sum(i) / len(i) > BINARIZATION_RESP_THRESHOLD
+            for i in s2_bin_list_each_by_epoch
+        ]
 
         # save binarization for the next calculations
         load_unitid = (

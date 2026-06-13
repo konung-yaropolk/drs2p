@@ -10,7 +10,7 @@ class Debug:
         self,
     ):
 
-        x = np.array([i for i in range(self.n_frames)])
+        x = np.arange(self.n_frames)
         y = np.array([np.mean(np.mean(self.img, axis=1), axis=1)])
         
         n_steps_per_epoch = len(self.trigger_config.drs_pattern[0])
