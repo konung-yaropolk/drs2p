@@ -150,9 +150,12 @@ class TracesCalc(Helpers, Debug):
         # Extract only the "Mean" columns for each ROI: columns mean_col, mean_col+n_cols, ...
         roi_means = raw_arr[:, mean_col::n_cols]  # shape (n_frames, n_rois)
 
-        # Build the time axis as a float array — no string conversion needed.
+        # Build the time axis as a float array.
+        # Each frame's timestamp is the END of its acquisition window, not the
+        # start — frame i (0-indexed) finishes acquiring at time (i+1)*spf.
+        # So frame 0 -> spf, frame 1 -> 2*spf, etc. (matches original semantics).
         n_frames   = roi_means.shape[0]
-        time_col   = np.arange(n_frames) * self.movie_config.seconds_per_frame_adjusted
+        time_col   = np.arange(1, n_frames + 1) * self.movie_config.seconds_per_frame_adjusted
 
         # Return list-of-rows: each row = [time, roi1_mean, roi2_mean, ...]
         # so that csv_cutter receives the same structure it always did.
