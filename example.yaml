@@ -77,7 +77,7 @@ movies:
   n_frames: 20943
   movie_duration: 2792.267
   seconds_per_frame: 0.13332698276273694
-- file_name: "example\\Sample_4.tif"
+- file_name: "example\\Sample_4_.tif"
   triggers:
   - {label: "", trig_number: 1, drs_pattern: [[1, 0, 0, 1, 0, 0], [0, 1, 0, 1, 0,
         1]]}
