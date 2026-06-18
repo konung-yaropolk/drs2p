@@ -178,7 +178,7 @@ class TracesCalc(Helpers, Debug):
         # Extract time vector and data traces
         x = matrix[0]
         traces = matrix[1:]
-
+        
         # Indices for baseline and signal periods
         bl_indices = np.where((x >= start_bl) & (x <= end_bl))[0]
         sig_indices = np.where((x >= start) & (x <= end))[0]
@@ -267,7 +267,7 @@ class TracesCalc(Helpers, Debug):
                     (i * self.s_epoch_duration) + delay,
                     (i * self.s_epoch_duration) + delay + self.trigger_config.step_duration / 2,
                 )[j]
-                for i in range(self.trigger_config.start_from_epoch, self.trigger_config.n_epochs)
+                for i in range(self.trigger_config.start_from_epoch, self.trigger_config.start_from_epoch + self.trigger_config.n_epochs)
             ]
             for j in range(7)
         ]
@@ -1176,7 +1176,7 @@ class TracesCalc(Helpers, Debug):
                 # r"^" + re.escape(self.file[:-4]) + r".csv$", nonrecursive=True
             )
         )
-        print("csv_list: ", csv_list)
+
         if csv_list:
 
             for i, [csv_path, csv_file] in enumerate(csv_list):
