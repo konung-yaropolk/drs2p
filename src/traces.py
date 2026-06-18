@@ -10,6 +10,7 @@ from helpers import Helpers
 
 CALCULATIONS_SUBFOLDER_NAME = "_CALCULATIONS_auto_"
 BINARIZATION_RESP_THRESHOLD = 0.29
+PLOT_STATS_FOR_EACH_ROI = False    # significantly slows down the traces calculation when massive amount of rois
 DEBUG = True
 
 
@@ -190,7 +191,8 @@ class TracesCalc(Helpers, Debug):
         snr_list = [] # saignal-to-noise ratio list, in ampl/std of baseline
         raw_line_list = [x[whole_step_indices] - start]
 
-        for trace in traces:
+        for i, trace in enumerate(traces):
+
             # Calculate baseline
             baseline = np.mean(trace[bl_indices])
             # Baseline correction
@@ -211,7 +213,7 @@ class TracesCalc(Helpers, Debug):
             # # Debug responce binarization 
             # # needed only during dev
             # print(f"Signal/Noise {ampl /  np.std(trace[bl_indices]):.2f} sigmas; Current responce considered: {ampl > self.trigger_config.sigmas_treshold * 
-            #                               np.std(trace[bl_indices])}")
+            #                             np.std(trace[bl_indices])}")
             # self.plot_traces(
             #     whole_step_indices,
             #     [corrected_trace[whole_step_indices]],
@@ -339,7 +341,7 @@ class TracesCalc(Helpers, Debug):
         # create unique id for each calculation unit (trigger)
         # unit_id = self.file_path + '%' + str(self.trigger_config.trig_number-1)
         unit_id = (
-            csv_path + csv_file + "$" + str(self.trigger_config.trig_number-1) + "$" + self.output_suffix
+            csv_path + csv_file + "$trig:" + str(self.trigger_config.trig_number) + "$" + self.output_suffix
         )
 
         s1s2 = False
@@ -516,16 +518,20 @@ class TracesCalc(Helpers, Debug):
 
         # Binarization:
 
-        if not s1s2 and not s1:
+        if (not s1s2) and (not s1):
             s1s2_bin_list_each_by_epoch = s2_bin_list_each_by_epoch
             s1_bin_list_each_by_epoch = s2_bin_list_each_by_epoch
-        if not s1s2 and s1:
+        if (not s1s2) and s1:
             s1s2_bin_list_each_by_epoch = s1_bin_list_each_by_epoch
-        if not s1 and s1s2:
+        if (not s1) and s1s2:
+            s1_bin_list_each_by_epoch = s1s2_bin_list_each_by_epoch
+        if s1 and s1s2:
             s1_bin_list_each_by_epoch = s1s2_bin_list_each_by_epoch
 
         if len(self.group_names) == 1:
             self.group_names.insert(0, "_")
+
+
 
         if not s1 and s1s2:
             st1_bin_summary_by_rois = (
@@ -768,7 +774,7 @@ class TracesCalc(Helpers, Debug):
         )
 
         # plot_s1s2_s2_roi_stats for each roi during timeline
-        if s1s2 and s2:
+        if s1s2 and s2 and PLOT_STATS_FOR_EACH_ROI:
             for i in range(len(s1s2_ampl_list_each_by_epoch)):
                 self.plot_s1s2_s2_roi_stats(
                     s1s2_ampl_list_each_by_epoch[i],
@@ -955,7 +961,7 @@ class TracesCalc(Helpers, Debug):
             ),
             s1s2_bin_list_each_by_epoch,
             st1_bin_summary_by_rois,
-            delay=0,
+            delay=(self.trigger_config.step_duration * s1s2_order) + (self.trigger_config.start_from_epoch * self.trigger_config.step_duration * self.n_steps_per_epoch),
         )
         self.plot_heatmap(
             matrix_T[:],
@@ -964,14 +970,14 @@ class TracesCalc(Helpers, Debug):
             ),
             s2_bin_list_each_by_epoch,
             st2_bin_summary_by_rois,
-            delay=self.s2_delay,
+            delay=(self.trigger_config.step_duration * s2_order) + (self.trigger_config.start_from_epoch * self.trigger_config.step_duration * self.n_steps_per_epoch),
         )
         self.plot_heatmap(
             matrix_T[:],
             "{0}{1}/_by_rois__heatmap_auto_{2}.png".format(
                 csv_path, output_dir, self.output_suffix
             ),
-            delay=self.s2_delay,
+            delay=None,
         )
 
     def plot_s2_to_s1s2_ratio_rois_by_epoch(self, array, path):
@@ -1111,7 +1117,12 @@ class TracesCalc(Helpers, Debug):
         plt.savefig(path, transparent=False)
         plt.close()
 
-    def plot_heatmap(self, matrix, path, bin=[], bin_summary_by_rois=[], delay=0):
+    def plot_heatmap(self, matrix, path, bin=[], bin_summary_by_rois=[], delay=0, vmin=0, vmax=2.5, norm=None):
+        '''
+        Plot a heatmap of the given matrix.
+        'norm' can be 'linear','log','symlog','asinh','logit','function','functionlog'
+        '''
+
         array = np.array(matrix[1:])  # Exclude the x-axis row
         array = array[::-1]  # reverse matrix along y axis
         x = np.array(matrix[0])  # x-axis values
@@ -1121,10 +1132,13 @@ class TracesCalc(Helpers, Debug):
         plt.imshow(
             array,
             aspect="auto",
-            cmap="magma",
+            cmap="gnuplot",
             interpolation="nearest",
             origin="upper",
             extent=[x[0], x[-1], len(array), 0],
+            vmin=vmin,
+            vmax=vmax,
+            norm=norm,   # 'linear','log','symlog','asinh','logit','function','functionlog'
         )
         plt.colorbar(label="ΔF/F₀")
 
@@ -1140,7 +1154,6 @@ class TracesCalc(Helpers, Debug):
                         event_x = (
                             j * self.trigger_config.step_duration * self.n_steps_per_epoch
                             + delay
-                            + min(x)
                         )
                         plt.plot(
                             event_x, len(array) - i - 0.5, "wx", markeredgecolor="g"
@@ -1156,10 +1169,14 @@ class TracesCalc(Helpers, Debug):
         csv_list = []
         csv_list.extend(
             self.file_lister(
-                r"^" + re.escape(self.file_nosuffix) + r".*\.csv$", nonrecursive=True
+                # # this regex will find files like 'file.csv', 'file_something.csv', but not 'file_something.xlsx' or 'file_something.csv_backup'
+                r"^" + re.escape(self.file[:-4]) + r".*\.csv$", nonrecursive=True
+
+                # # this regex will find files like 'file.csv', but not 'file_something.csv' or 'file_something.xlsx'
+                # r"^" + re.escape(self.file[:-4]) + r".csv$", nonrecursive=True
             )
         )
-
+        print("csv_list: ", csv_list)
         if csv_list:
 
             for i, [csv_path, csv_file] in enumerate(csv_list):

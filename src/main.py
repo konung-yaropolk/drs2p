@@ -94,7 +94,6 @@ def main(config_path):
     # now check each movie and parse metadata if missing this will create movie objects and run the analysis but also  check if the script already had run 
     #and if not it will parse the metadata from the description file (like the timestamps from the events and movie duration etc)
     for i, movie_config in enumerate(run_config.movies):
-        print(f"Processing movie: {movie_config.file_name}")
         if ((movie_config.events is None) 
             or (movie_config.seconds_per_frame is None) 
             or (movie_config.movie_duration is None) 
@@ -160,6 +159,7 @@ def main(config_path):
         #     key=lambda t: t.trig_number
         # )
         for trigger in sorted(movie_config.triggers, key=lambda t: t.trig_number):
+            print(f"Processing movie: {movie_config.file_name}, trigger: {trigger.trig_number}, label: {trigger.label}")
             try:
                 trigger_analysis = Trigger(
                     run_config=run_config,
