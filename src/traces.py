@@ -344,6 +344,9 @@ class TracesCalc(Helpers, Debug):
             csv_path + csv_file + "$trig:" + str(self.trigger_config.trig_number) + "$" + self.output_suffix
         )
 
+        # get the name of directory conraining original tif and csv file to add to the output files name
+        base_dir = os.path.basename(os.path.normpath(csv_path))
+
         s1s2 = False
         s1 = False
         s2 = False
@@ -956,8 +959,8 @@ class TracesCalc(Helpers, Debug):
         # plot_heatmaps
         self.plot_heatmap(
             matrix_T[:],
-            "{0}{1}/_by_rois__heatmap_bin_{2}_{3}_auto_.png".format(
-                csv_path, output_dir, self.group_names[0], self.output_suffix
+            "{0}{1}/_by_rois_heatmap_bin_{2}_{3}{4}_in_{5}_auto.png".format(
+                csv_path, output_dir, self.group_names[0], self.file_nosuffix, self.output_suffix, base_dir
             ),
             s1s2_bin_list_each_by_epoch,
             st1_bin_summary_by_rois,
@@ -965,8 +968,8 @@ class TracesCalc(Helpers, Debug):
         )
         self.plot_heatmap(
             matrix_T[:],
-            "{0}{1}/_by_rois__heatmap_bin_{2}_{3}_auto_.png".format(
-                csv_path, output_dir, self.group_names[1], self.output_suffix
+            "{0}{1}/_by_rois_heatmap_bin_{2}_{3}{4}_in_{5}_auto.png".format(
+                csv_path, output_dir, self.group_names[1], self.file_nosuffix, self.output_suffix, base_dir
             ),
             s2_bin_list_each_by_epoch,
             st2_bin_summary_by_rois,
@@ -974,8 +977,8 @@ class TracesCalc(Helpers, Debug):
         )
         self.plot_heatmap(
             matrix_T[:],
-            "{0}{1}/_by_rois__heatmap_auto_{2}.png".format(
-                csv_path, output_dir, self.output_suffix
+            "{0}{1}/_by_rois__heatmap_{2}{3}_in_{4}_auto.png".format(
+                csv_path, output_dir, self.file_nosuffix, self.output_suffix, base_dir
             ),
             delay=None,
         )
