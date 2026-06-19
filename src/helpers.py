@@ -5,7 +5,6 @@ import tifffile
 import matplotlib.pyplot as plt
 
 
-
 class Helpers:
     def calculate_suffix_and_nosuffix(self, file_full_path):
         # Get the directory from the given file's full path
@@ -48,7 +47,9 @@ class Helpers:
 
     def frame_to_sec(self, frame: int) -> float:
         """Convert frame to timestamp (start of frame)."""
-        out = frame / self.movie_config.fps_adjusted if frame <= self.movie_config.n_frames else self.movie_config.movie_duration_adjusted
+        out = (frame / self.movie_config.fps_adjusted
+               if frame <= self.movie_config.n_frames
+               else self.movie_config.movie_duration_adjusted)
         return out
 
     def sec_to_frame(self, timestamp: float) -> int:
@@ -86,33 +87,30 @@ class Helpers:
         )
 
     def transpose(self, matrix):
-        rows = len(matrix)
-        cols = max(len(row) for row in matrix)
+        """Transpose a matrix.
 
-        # use internal numpy method if ndarray for optimization
+        Fast path: if already an ndarray, use .T (zero-copy view).
+        Slow path: list-of-lists — convert to ndarray, transpose, return as list.
+        The caller receives the same data type it passes in, so existing code
+        that iterates with `for row in transpose(...)` keeps working.
+        """
         if isinstance(matrix, np.ndarray):
-            transposed = matrix.T
-        else:
-            transposed = [[None] * rows for _ in range(cols)]
+            return matrix.T
 
-            for i in range(rows):
-                for j in range(len(matrix[i])):
-                    transposed[j][i] = matrix[i][j]
-
-        return transposed
+        # Convert to ndarray for the transpose, then back to list of lists.
+        # This replaces the old O(rows*cols) Python nested loop.
+        arr = np.array(matrix, dtype=object)
+        return arr.T.tolist()
 
     def transpose_autoballance(self, data):
-        # Determine the maximum length of any row
+        """Transpose a ragged (non-rectangular) list, padding with None."""
+        # Determine max row length and pad all rows to that length
         max_len = max(len(row) for row in data)
-        # Fill shorter rows with None to make all rows equal in length
-        balanced_data = tuple(list(row) + [None] * (max_len - len(row)) for row in data)
-        # Transpose the matrix
-        data_t = tuple(
-            tuple(balanced_data[j][i] for j in range(len(balanced_data)))
-            for i in range(max_len)
-        )
-        return data_t
-
+        # Use np.empty(object) to avoid numeric coercion on mixed types
+        arr = np.empty((len(data), max_len), dtype=object)
+        for i, row in enumerate(data):
+            arr[i, :len(row)] = row
+        return tuple(map(tuple, arr.T.tolist()))
     def csv_write(self, data, csv_path, csv_file, filename_suffix, subdir=False):
 
         if subdir:
@@ -140,13 +138,23 @@ class Helpers:
             for row in data:
                 writer.writerow(row)
 
-    def filter_list(self, list, bin, replace=True, replace_with=None):
-        if replace == True:
-            output = [value if bin[i] else replace_with for i, value in enumerate(list)]
-        else:
-            output = [value for value, keep in zip(list, bin) if keep]
+    def filter_list(self, data, bin_mask, replace=True, replace_with=None):
+        """Filter or mask a list/array by a boolean mask.
 
-        return output
+        replace=True  → keep element where True, substitute replace_with where False.
+        replace=False → return only elements where True (no None padding).
+
+        Uses np.where / boolean indexing so no Python loop is needed.
+        """
+        arr  = np.asarray(data,     dtype=object)
+        mask = np.asarray(bin_mask, dtype=bool)
+
+        if replace:
+            # np.where on object arrays needs explicit fill scalar
+            out = np.where(mask, arr, replace_with)
+            return out.tolist()
+        else:
+            return arr[mask].tolist()
 
     def plot_traces(
         self,
@@ -170,7 +178,7 @@ class Helpers:
         event_linestyle=":",
     ):
 
-        x = np.array(x)
+        x = np.asarray(x)
 
         plt.figure(figsize=figsize, dpi=dpi)
         # plt.style.use("ggplot")
@@ -180,27 +188,32 @@ class Helpers:
         # the more transparent each line
         if not alpha:
             n_cols = len(cols)
-            alpha = 3 / n_cols
-
-        if alpha > 1:
+            alpha = min(3 / n_cols, 1)
+        elif alpha > 1:
             alpha = 1
 
-        # Plot each trace
-        for i, col in enumerate(cols):
+        # cols is typically a 2-D ndarray (n_traces × n_samples) after the
+        # refactor in traces.py; fall back gracefully if it is a list.
+        cols_arr = np.asarray(cols)
+
+        for col in cols_arr:
             plt.plot(x, col, color=linecolor, linewidth=linewidth, alpha=alpha)
 
         # avg line plot
         if average:
             plt.plot(
                 x,
-                np.mean(cols, axis=0),
+                cols_arr.mean(axis=0),
                 color=avg_linecolor,
                 linewidth=linewidth * 3,
                 alpha=1,
             )
 
+        cols_max = cols_arr.max()
+        cols_min = cols_arr.min()
+
         for event in events:
-            if isinstance(event, int) or isinstance(event, float):
+            if isinstance(event, (int, float)):
                 plt.axvline(
                     event,
                     color=event_linecolor,
@@ -209,11 +222,11 @@ class Helpers:
                     alpha=1,
                     zorder=1,
                 )
-            elif isinstance(event, list) or isinstance(event, tuple):
+            elif isinstance(event, (list, tuple)):
                 plt.fill_between(
                     x,
-                    y1=np.max(cols),
-                    y2=np.min(cols),
+                    y1=cols_max,
+                    y2=cols_min,
                     where=(x >= event[0]) & (x <= event[-1]),
                     color=fillcolor,
                     edgecolor="none",
@@ -234,7 +247,7 @@ class Helpers:
         if save:
             if isinstance(savename, str):
                 plt.savefig(savename, transparent=False)
-            elif isinstance(savename, list) or isinstance(savename, tuple):
+            elif isinstance(savename, (list, tuple)):
                 for name in savename:
                     plt.savefig(name, transparent=False)
             else:

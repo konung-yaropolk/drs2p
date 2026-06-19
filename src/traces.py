@@ -1,4 +1,3 @@
-
 import re
 import os
 import csv
@@ -11,6 +10,7 @@ from helpers import Helpers
 
 CALCULATIONS_SUBFOLDER_NAME = "_CALCULATIONS_auto_"
 BINARIZATION_RESP_THRESHOLD = 0.29
+PLOT_STATS_FOR_EACH_ROI = False    # significantly slows down the traces calculation when massive amount of rois
 DEBUG = True
 
 
@@ -75,78 +75,93 @@ class TracesCalc(Helpers, Debug):
         return files
 
     def find_time_index(self, content, time):
-        content = (float(i) - time for i in list(zip(*content))[0])
-        diffs = [abs(i) for i in content]
-        index = diffs.index(min(diffs))
-
-        return index
+        # content is a list-of-rows; column 0 is the time axis.
+        # Extract it as a float array and use np.argmin — one vectorized call
+        # instead of a generator + Python list comprehension + linear scan.
+        time_col = np.asarray([float(row[0]) for row in content])
+        return int(np.argmin(np.abs(time_col - time)))
 
     def data_normalize(self, content, start, zero):
-        content_normalized = []
+        # content: list of columns (each column is a sequence of numeric-string or float values).
+        # Convert once to a 2-D float array: shape (n_rois, n_frames).
+        arr = np.array(content, dtype=float)   # single allocation + type conversion
 
-        for column in content:
-            baseline = column[start:zero]
-            baseline_sum = sum((float(cell) for cell in baseline))
-            baseline_len = len(baseline)
-            mean = baseline_sum / baseline_len if baseline_len and baseline else 0
+        # Baseline slice for every ROI simultaneously
+        baseline = arr[:, start:zero]          # shape (n_rois, baseline_len)
+        means = baseline.mean(axis=1, keepdims=True)  # shape (n_rois, 1)
 
-            column_normalized = [
-                (float(cell) - mean) / mean if mean else 0 for cell in column
-            ]  # ΔF/F₀
-            # column_normalized = [float(cell)/mean if mean else 1 for cell in column]   # ΔF/F
+        # Avoid division by zero — same semantics as the original (result = 0 when mean=0)
+        safe_means = np.where(means == 0, 1.0, means)
+        normalized = np.where(means == 0, 0.0, (arr - means) / safe_means)  # ΔF/F₀
 
-            content_normalized.append(column_normalized)
-
-        return content_normalized
+        # Return as list-of-lists to keep downstream code unchanged
+        return normalized.tolist()
 
     def csv_cutter(self, content):
-        timeline_zero = (float(i) - self.s_trig_time for i in list(zip(*content))[0])
+        # content: list of rows (each row = [time, roi1, roi2, ...]) as strings.
+        # Convert the whole block to a float array once: shape (n_frames, n_cols).
+        arr = np.array(content, dtype=float)
+        time_col = arr[:, 0]                   # shape (n_frames,)
+
+        # All index lookups now operate on the pre-converted float array.
+        def _nearest(t):
+            return int(np.argmin(np.abs(time_col - t)))
 
         start = (
-            self.find_time_index(content, self.s_trig_time - self.trigger_config.time_before_trig)
+            _nearest(self.s_trig_time - self.trigger_config.time_before_trig)
             if self.trigger_config.time_before_trig
             else None
         )
-
         start_bl = (
-            self.find_time_index(content, self.s_trig_time - self.trigger_config.baseline_duraton)
+            _nearest(self.s_trig_time - self.trigger_config.baseline_duraton)
             if self.trigger_config.baseline_duraton
             else start
         )
-
-        zero = self.find_time_index(content, self.s_trig_time)
-
-        end = (
-            self.find_time_index(content, self.s_trig_time + self.trigger_config.time_after_trig)
+        zero  = _nearest(self.s_trig_time)
+        end   = (
+            _nearest(self.s_trig_time + self.trigger_config.time_after_trig)
             if self.trigger_config.time_after_trig
             else None
         )
 
-        content = list(zip(*content))[1:]
-        content[:0] = [timeline_zero]
+        # Build the output block: first column is time re-zeroed to trigger.
+        # Remaining columns are ROI traces, optionally normalized.
+        timeline_zero = time_col - self.s_trig_time   # shape (n_frames,)
+        roi_data = arr[:, 1:].T                        # shape (n_rois, n_frames)
 
         if self.trigger_config.relative_values:
-            content[1:] = self.data_normalize(content[1:], start_bl, zero)
+            roi_data = np.array(
+                self.data_normalize(roi_data.tolist(), start_bl, zero),
+                dtype=float,
+            )
 
-        csv_output = list(zip(*content))[start:end]
-        csv_output_np = np.array(csv_output)
+        # Reassemble as (n_frames, n_cols) then slice the time window
+        out = np.column_stack([timeline_zero, roi_data.T])  # (n_frames, 1+n_rois)
+        return out[start:end]
 
-        return csv_output_np
+    def csv_transform(self, content_raw):
+        mean_col = self.trigger_config.mean_col_order   # "Mean" column index
+        n_cols   = self.trigger_config.cols_per_roi     # measurements per ROI
 
-    def csv_transform(
-        self,
-        content_raw,
-    ):
+        # Parse the full CSV block into a float array once.
+        # content_raw is a tuple-of-tuples of strings; skip the header row (row 0).
+        # Shape after skip: (n_frames, total_cols).
+        raw_arr = np.array(content_raw[1:], dtype=float)
 
-        mean_col = self.trigger_config.mean_col_order  # order of "Mean" col in measurments
-        n_cols = self.trigger_config.cols_per_roi  # n of measurments for each ROI
+        # Extract only the "Mean" columns for each ROI: columns mean_col, mean_col+n_cols, ...
+        roi_means = raw_arr[:, mean_col::n_cols]  # shape (n_frames, n_rois)
 
-        first_col = (str(i * self.movie_config.seconds_per_frame_adjusted) for i in range(len(content_raw)))
-        content = list(zip(*content_raw))[mean_col::n_cols]
-        content[:0] = [first_col]
-        content = list(zip(*content))[1:]
+        # Build the time axis as a float array.
+        # Each frame's timestamp is the END of its acquisition window, not the
+        # start — frame i (0-indexed) finishes acquiring at time (i+1)*spf.
+        # So frame 0 -> spf, frame 1 -> 2*spf, etc. (matches original semantics).
+        n_frames   = roi_means.shape[0]
+        time_col   = np.arange(1, n_frames + 1) * self.movie_config.seconds_per_frame_adjusted
 
-        return content
+        # Return list-of-rows: each row = [time, roi1_mean, roi2_mean, ...]
+        # so that csv_cutter receives the same structure it always did.
+        out = np.column_stack([time_col, roi_means])  # (n_frames, 1+n_rois)
+        return out.tolist()
 
     def csv_read(self, csv_path, csv_file):
 
@@ -163,7 +178,7 @@ class TracesCalc(Helpers, Debug):
         # Extract time vector and data traces
         x = matrix[0]
         traces = matrix[1:]
-
+        
         # Indices for baseline and signal periods
         bl_indices = np.where((x >= start_bl) & (x <= end_bl))[0]
         sig_indices = np.where((x >= start) & (x <= end))[0]
@@ -176,7 +191,8 @@ class TracesCalc(Helpers, Debug):
         snr_list = [] # saignal-to-noise ratio list, in ampl/std of baseline
         raw_line_list = [x[whole_step_indices] - start]
 
-        for trace in traces:
+        for i, trace in enumerate(traces):
+
             # Calculate baseline
             baseline = np.mean(trace[bl_indices])
             # Baseline correction
@@ -197,7 +213,7 @@ class TracesCalc(Helpers, Debug):
             # # Debug responce binarization 
             # # needed only during dev
             # print(f"Signal/Noise {ampl /  np.std(trace[bl_indices]):.2f} sigmas; Current responce considered: {ampl > self.trigger_config.sigmas_treshold * 
-            #                               np.std(trace[bl_indices])}")
+            #                             np.std(trace[bl_indices])}")
             # self.plot_traces(
             #     whole_step_indices,
             #     [corrected_trace[whole_step_indices]],
@@ -251,7 +267,7 @@ class TracesCalc(Helpers, Debug):
                     (i * self.s_epoch_duration) + delay,
                     (i * self.s_epoch_duration) + delay + self.trigger_config.step_duration / 2,
                 )[j]
-                for i in range(self.trigger_config.start_from_epoch, self.trigger_config.n_epochs)
+                for i in range(self.trigger_config.start_from_epoch, self.trigger_config.start_from_epoch + self.trigger_config.n_epochs)
             ]
             for j in range(7)
         ]
@@ -325,7 +341,7 @@ class TracesCalc(Helpers, Debug):
         # create unique id for each calculation unit (trigger)
         # unit_id = self.file_path + '%' + str(self.trigger_config.trig_number-1)
         unit_id = (
-            csv_path + csv_file + "$" + str(self.trigger_config.trig_number-1) + "$" + self.output_suffix
+            csv_path + csv_file + "$trig:" + str(self.trigger_config.trig_number) + "$" + self.output_suffix
         )
 
         s1s2 = False
@@ -502,38 +518,42 @@ class TracesCalc(Helpers, Debug):
 
         # Binarization:
 
-        if not s1s2 and not s1:
+        if (not s1s2) and (not s1):
             s1s2_bin_list_each_by_epoch = s2_bin_list_each_by_epoch
             s1_bin_list_each_by_epoch = s2_bin_list_each_by_epoch
-        if not s1s2 and s1:
+        if (not s1s2) and s1:
             s1s2_bin_list_each_by_epoch = s1_bin_list_each_by_epoch
-        if not s1 and s1s2:
+        if (not s1) and s1s2:
+            s1_bin_list_each_by_epoch = s1s2_bin_list_each_by_epoch
+        if s1 and s1s2:
             s1_bin_list_each_by_epoch = s1s2_bin_list_each_by_epoch
 
         if len(self.group_names) == 1:
             self.group_names.insert(0, "_")
 
+
+
         if not s1 and s1s2:
-            st1_bin_summary_by_rois = [
-                sum(i) / len(i) > BINARIZATION_RESP_THRESHOLD
-                for i in s1s2_bin_list_each_by_epoch
-            ]
+            st1_bin_summary_by_rois = (
+                np.array(s1s2_bin_list_each_by_epoch, dtype=float).mean(axis=1)
+                > BINARIZATION_RESP_THRESHOLD
+            ).tolist()
         if not s1s2 and s1:
-            st1_bin_summary_by_rois = [
-                sum(i) / len(i) > BINARIZATION_RESP_THRESHOLD
-                for i in s1_bin_list_each_by_epoch
-            ]
+            st1_bin_summary_by_rois = (
+                np.array(s1_bin_list_each_by_epoch, dtype=float).mean(axis=1)
+                > BINARIZATION_RESP_THRESHOLD
+            ).tolist()
         # fix for case with 'long' stim patterns when s1, s1s2, and s2 are presented all
-        # ugly cinstruction, but it works, and I don't have time to refactor it now
+        # ugly construction, but it works, and I don't have time to refactor it now
         if s1 and s1s2:
-            st1_bin_summary_by_rois = [
-                sum(i) / len(i) > BINARIZATION_RESP_THRESHOLD
-                for i in s1s2_bin_list_each_by_epoch
-            ]
-        st2_bin_summary_by_rois = [
-            sum(i) / len(i) > BINARIZATION_RESP_THRESHOLD
-            for i in s2_bin_list_each_by_epoch
-        ]
+            st1_bin_summary_by_rois = (
+                np.array(s1s2_bin_list_each_by_epoch, dtype=float).mean(axis=1)
+                > BINARIZATION_RESP_THRESHOLD
+            ).tolist()
+        st2_bin_summary_by_rois = (
+            np.array(s2_bin_list_each_by_epoch, dtype=float).mean(axis=1)
+            > BINARIZATION_RESP_THRESHOLD
+        ).tolist()
 
         # save binarization for the next calculations
         load_unitid = (
@@ -588,8 +608,8 @@ class TracesCalc(Helpers, Debug):
         # outputs:
         os.makedirs(f"{csv_path}{output_dir}/outputs_{self.output_suffix}_{output_dir}/", exist_ok=True)
 
-        def write_metrics(stim_label, snr_data, ampl_data, auc_data):
-            for metric, data in [("SNR", snr_data), ("Ampl", ampl_data), ("AUC", auc_data)]:
+        def write_metrics(stim_label, snr_data, ampl_data, auc_data, bin_data):
+            for metric, data in [("SNR", snr_data), ("Ampl", ampl_data), ("AUC", auc_data), ("Bin", bin_data)]:
                 self.csv_write(
                     data,
                     csv_path + output_dir,
@@ -601,11 +621,11 @@ class TracesCalc(Helpers, Debug):
         s2_name = self.trigger_config.stim_2_name
 
         if s1s2:
-            write_metrics(f"{s1_name}&{s2_name}", s1s2_snr_list_each_by_epoch, s1s2_ampl_list_each_by_epoch, s1s2_auc_list_each_by_epoch)
+            write_metrics(f"{s1_name}&{s2_name}", s1s2_snr_list_each_by_epoch, s1s2_ampl_list_each_by_epoch, s1s2_auc_list_each_by_epoch, s1s2_bin_list_each_by_epoch)
         if s1:
-            write_metrics(s1_name, s1_snr_list_each_by_epoch, s1_ampl_list_each_by_epoch, s1_auc_list_each_by_epoch)
+            write_metrics(s1_name, s1_snr_list_each_by_epoch, s1_ampl_list_each_by_epoch, s1_auc_list_each_by_epoch, s1_bin_list_each_by_epoch)
         if s2:
-            write_metrics(s2_name, s2_snr_list_each_by_epoch, s2_ampl_list_each_by_epoch, s2_auc_list_each_by_epoch)
+            write_metrics(s2_name, s2_snr_list_each_by_epoch, s2_ampl_list_each_by_epoch, s2_auc_list_each_by_epoch, s2_bin_list_each_by_epoch)
 
 
 
@@ -719,36 +739,42 @@ class TracesCalc(Helpers, Debug):
         self.plot_s1s2_s2_roi_stats(
             self.filter_list(st1_auc_mean_of_epochs_by_rois, filter[2], replace=False),
             self.filter_list(st2_auc_mean_of_epochs_by_rois, filter[2], replace=False),
-            "{0}{1}/_by_rois_{2}_{3}_{4}_auc_auto_.png".format(
+            "{0}{1}/_by_rois_{2}_{3}{4}_{4}_auc_auto_.png".format(
                 csv_path,
                 output_dir,
-                self.group_names[0],
-                self.group_names[1],
+                self.trigger_config.stim_1_name,
+                self.trigger_config.stim_2_name,
                 self.output_suffix,
             ),
             paired=True,
             y_label="AUC",
-            Groups_Name=[self.group_names[0], self.group_names[1]],
+            Groups_Name=[
+                        "{}+{}".format(self.trigger_config.stim_1_name, self.trigger_config.stim_2_name),
+                        self.trigger_config.stim_2_name,
+                    ],
         )
 
         # plot_s1s2_s2_roi_stats Ampl for all rois
         self.plot_s1s2_s2_roi_stats(
             self.filter_list(st1_ampl_mean_of_epochs_by_rois, filter[2], replace=False),
             self.filter_list(st2_ampl_mean_of_epochs_by_rois, filter[2], replace=False),
-            "{0}{1}/_by_rois_{2}_{3}_{4}_ampl_auto_.png".format(
+            "{0}{1}/_by_rois_{2}_{3}{4}_{4}_ampl_auto_.png".format(
                 csv_path,
                 output_dir,
-                self.group_names[0],
-                self.group_names[1],
+                self.trigger_config.stim_1_name,
+                self.trigger_config.stim_2_name,
                 self.output_suffix,
             ),
             paired=True,
             y_label="ΔF/F₀",
-            Groups_Name=[self.group_names[0], self.group_names[1]],
+            Groups_Name=[
+                        "{}+{}".format(self.trigger_config.stim_1_name, self.trigger_config.stim_2_name),
+                        self.trigger_config.stim_2_name,
+                    ],
         )
 
         # plot_s1s2_s2_roi_stats for each roi during timeline
-        if s1s2 and s2:
+        if s1s2 and s2 and PLOT_STATS_FOR_EACH_ROI:
             for i in range(len(s1s2_ampl_list_each_by_epoch)):
                 self.plot_s1s2_s2_roi_stats(
                     s1s2_ampl_list_each_by_epoch[i],
@@ -935,7 +961,7 @@ class TracesCalc(Helpers, Debug):
             ),
             s1s2_bin_list_each_by_epoch,
             st1_bin_summary_by_rois,
-            delay=0,
+            delay=(self.trigger_config.step_duration * s1s2_order) + (self.trigger_config.start_from_epoch * self.trigger_config.step_duration * self.n_steps_per_epoch),
         )
         self.plot_heatmap(
             matrix_T[:],
@@ -944,14 +970,14 @@ class TracesCalc(Helpers, Debug):
             ),
             s2_bin_list_each_by_epoch,
             st2_bin_summary_by_rois,
-            delay=self.s2_delay,
+            delay=(self.trigger_config.step_duration * s2_order) + (self.trigger_config.start_from_epoch * self.trigger_config.step_duration * self.n_steps_per_epoch),
         )
         self.plot_heatmap(
             matrix_T[:],
             "{0}{1}/_by_rois__heatmap_auto_{2}.png".format(
                 csv_path, output_dir, self.output_suffix
             ),
-            delay=self.s2_delay,
+            delay=None,
         )
 
     def plot_s2_to_s1s2_ratio_rois_by_epoch(self, array, path):
@@ -1091,7 +1117,12 @@ class TracesCalc(Helpers, Debug):
         plt.savefig(path, transparent=False)
         plt.close()
 
-    def plot_heatmap(self, matrix, path, bin=[], bin_summary_by_rois=[], delay=0):
+    def plot_heatmap(self, matrix, path, bin=[], bin_summary_by_rois=[], delay=0, vmin=0, vmax=2.5, norm=None):
+        '''
+        Plot a heatmap of the given matrix.
+        'norm' can be 'linear','log','symlog','asinh','logit','function','functionlog'
+        '''
+
         array = np.array(matrix[1:])  # Exclude the x-axis row
         array = array[::-1]  # reverse matrix along y axis
         x = np.array(matrix[0])  # x-axis values
@@ -1101,10 +1132,13 @@ class TracesCalc(Helpers, Debug):
         plt.imshow(
             array,
             aspect="auto",
-            cmap="magma",
+            cmap="gnuplot",
             interpolation="nearest",
             origin="upper",
             extent=[x[0], x[-1], len(array), 0],
+            vmin=vmin,
+            vmax=vmax,
+            norm=norm,   # 'linear','log','symlog','asinh','logit','function','functionlog'
         )
         plt.colorbar(label="ΔF/F₀")
 
@@ -1120,7 +1154,6 @@ class TracesCalc(Helpers, Debug):
                         event_x = (
                             j * self.trigger_config.step_duration * self.n_steps_per_epoch
                             + delay
-                            + min(x)
                         )
                         plt.plot(
                             event_x, len(array) - i - 0.5, "wx", markeredgecolor="g"
@@ -1136,7 +1169,11 @@ class TracesCalc(Helpers, Debug):
         csv_list = []
         csv_list.extend(
             self.file_lister(
-                r"^" + re.escape(self.file_nosuffix) + r".*\.csv$", nonrecursive=True
+                # # this regex will find files like 'file.csv', 'file_something.csv', but not 'file_something.xlsx' or 'file_something.csv_backup'
+                r"^" + re.escape(self.file[:-4]) + r".*\.csv$", nonrecursive=True
+
+                # # this regex will find files like 'file.csv', but not 'file_something.csv' or 'file_something.xlsx'
+                # r"^" + re.escape(self.file[:-4]) + r".csv$", nonrecursive=True
             )
         )
 

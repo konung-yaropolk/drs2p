@@ -63,14 +63,15 @@ def adjust_config_params(run_config, movie_config, trigger_config, helper):
             trigger_config.start_from_epoch -= 1 
 
 def main(config_path):
+    print(f"\nWorking on workflow: {config_path}\n")
     helper = Helpers()
-    #import parsers to read from yaml files
+    # import parsers to read from yaml files
     yaml_parser = YAML()
     yaml_parser.preserve_quotes = True
-    #oarse yaml file
+    # parse yaml file
     with open(config_path) as file:
         raw = yaml_parser.load(file)
-    #populate the data objects: RunConfig, MovieConfig, TriggerConfig - 
+    # populate the data objects: RunConfig, MovieConfig, TriggerConfig - 
     run_config = RunConfig(
         movies=[
             MovieConfig(
@@ -97,6 +98,7 @@ def main(config_path):
             or (movie_config.seconds_per_frame is None) 
             or (movie_config.movie_duration is None) 
             or (movie_config.n_frames is None)):
+            print(f"--some entries are missing in YAML, parsing metadata from TXT")
 
             # create Movie once per tiff the metadata reading method is called at the time of initialization 
             file_path = os.path.join(run_config.working_dir, movie_config.file_name)
@@ -157,6 +159,7 @@ def main(config_path):
         #     key=lambda t: t.trig_number
         # )
         for trigger in sorted(movie_config.triggers, key=lambda t: t.trig_number):
+            print(f"Processing movie: {movie_config.file_name}, trigger: {trigger.trig_number}, label: {trigger.label}")
             try:
                 trigger_analysis = Trigger(
                     run_config=run_config,
@@ -267,10 +270,11 @@ def main(config_path):
 
 def entry_point():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--path', required=True, 
-                       help='please, add "--path path/to/your/yaml/file"')
+    parser.add_argument('--path', required=True, nargs='+',
+                       help='please, add "--path path/to/your/yaml/file1 path/to/your/yaml/file2 ... etc."')
     args = parser.parse_args()
-    main(config_path=args.path)
+    for config_path in args.path:
+        main(config_path=config_path)
 
 # to run the script first act env(e.g. source venv2/bin/activate), then python classes.py --path 'F:/Lab Work Files/2-photon/2025_09_18/experiment.yaml'
 if __name__ == '__main__':
