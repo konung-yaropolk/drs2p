@@ -1,11 +1,40 @@
 import os
+import re
 import csv
 import numpy as np
 import tifffile
 import matplotlib.pyplot as plt
+import platform
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 
 class Helpers:
+
+    def normalize_path(self, path_str: str, target: str = "auto") -> str:
+        """
+        Normalize a mixed-separator path to a safe PurePath for the target platform.
+
+        Args:
+            path_str: Path with mixed or inconsistent separators/drive letters.
+            target:   "auto" (current platform), "windows", or "posix".
+
+        Returns:
+            PureWindowsPath or PurePosixPath with correct separators.
+        """
+        if target == "auto":
+            target = "windows" if platform.system() == "Windows" else "posix"
+
+        # Extract and normalize drive letter (e.g. c:folder → C:/)
+        match = re.match(r"^([a-zA-Z]):[/\\]?", path_str)
+        drive = f"{match.group(1).upper()}:/" if match else ""
+        rest  = path_str[match.end():] if match else path_str
+
+        # Unify separators, drop empty parts, rejoin as a single clean string
+        parts = [p for p in rest.replace("\\", "/").split("/") if p]
+        normalized = drive + "/".join(parts)
+
+        return str(PureWindowsPath(normalized)) if target == "windows" else str(PurePosixPath(normalized))
+        
     def calculate_suffix_and_nosuffix(self, file_full_path):
         # Get the directory from the given file's full path
 

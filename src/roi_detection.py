@@ -6,17 +6,19 @@ import roifile
 import numpy as np
 import csv
 from skimage.draw import ellipse
+from helpers import Helpers
+
 
 class RoiDetector:
     def __init__(self, fiji_path, derivative_tiff, dir):
-        self.fiji_path = fiji_path
+        self.fiji_path = Helpers().normalize_path(fiji_path)
         self.derivative_tiff = derivative_tiff
         self.dir = dir
     
     def run(self):
         macro = self._generate_macro()
-        macro_path = os.path.join(self.dir, '_temp_macro.ijm')
-        
+        macro_path = Helpers().normalize_path(os.path.join(self.dir, '_temp_macro.ijm'))
+
         with open(macro_path, 'w') as f:
             f.write(macro)
         
@@ -28,8 +30,8 @@ class RoiDetector:
                 os.remove(macro_path)
     
     def _generate_macro(self):
-        roi_path = os.path.join(
-            self.dir, f"Roi_{self.derivative_tiff}.zip")
+        roi_path = Helpers().normalize_path(os.path.join(
+            self.dir, f"Roi_{self.derivative_tiff}.zip"))
         
         return f"""
 function detectAndSaveParticles(savepath) {{
@@ -59,9 +61,9 @@ function detectAndSaveParticles(savepath) {{
     close("*");
 }}
 
-open("{os.path.join(self.dir, self.derivative_tiff)}");
+open("{Helpers().normalize_path(os.path.join(self.dir, self.derivative_tiff), target="posix")}");
 title = getTitle();
-detectAndSaveParticles("{roi_path}");
+detectAndSaveParticles("{Helpers().normalize_path(roi_path, target="posix")}");
 eval("script", "System.exit(0);");
 """
     

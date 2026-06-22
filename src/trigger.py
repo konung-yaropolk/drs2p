@@ -40,9 +40,9 @@ class Trigger:
 
     def _roi_detection(self):
         #detect all the derivative files
-        derivatives_dir = os.path.join(
+        derivatives_dir = Helpers().normalize_path(os.path.join(
             self.run_config.working_dir,
-            self.movie_config.file_name + DERIVATIVES_SUBFOLDER_NAME + self.trigger_config.label)
+            self.movie_config.file_name + DERIVATIVES_SUBFOLDER_NAME + self.trigger_config.label))
         if not os.path.exists(derivatives_dir):
             print(f"Derivatives folder not found: {derivatives_dir}")
             return
@@ -80,9 +80,9 @@ class Trigger:
 
     def _measure_rois(self):
        
-        derivatives_dir = os.path.join(
+        derivatives_dir = Helpers().normalize_path(os.path.join(
             self.run_config.working_dir,
-            self.movie_config.file_name + DERIVATIVES_SUBFOLDER_NAME + self.trigger_config.label)
+            self.movie_config.file_name + DERIVATIVES_SUBFOLDER_NAME + self.trigger_config.label))
         if not os.path.exists(derivatives_dir):
             print(f"No derivatives folder found: {derivatives_dir}")
             return
@@ -96,11 +96,11 @@ class Trigger:
             return
         for roi_zip in roi_zips:
             roi_zip_path = os.path.join(derivatives_dir, roi_zip)
-            
+            roi_zip_path = Helpers().normalize_path(roi_zip_path)
             # name CSV after the ROI zip
             csv_name = self.movie_config.file_name[:-4] + self.trigger_config.label + '.csv'
             csv_path = os.path.join(
-                os.path.dirname(self.run_config.working_dir),
+                Helpers().normalize_path(os.path.dirname(self.run_config.working_dir)),
                 csv_name
             )
             # skip if CSV already exists
@@ -108,7 +108,7 @@ class Trigger:
                 print(f"CSV already exists, skipping: {csv_path}")
                 continue
             RoiMeasurer(
-                dir = self.run_config.working_dir,
+                dir = Helpers().normalize_path(self.run_config.working_dir),
                 tiff=self.movie_config.file_name,
                 roi_zip=roi_zip_path,
                 output_csv=csv_path,
