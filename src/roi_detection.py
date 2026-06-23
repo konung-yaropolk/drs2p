@@ -69,10 +69,10 @@ eval("script", "System.exit(0);");
     
 class RoiMeasurer:
     def __init__(self, dir, tiff, roi_zip, output_csv, seconds_per_frame):
-        self.dir = dir
-        self.tiff = tiff
-        self.roi_zip = roi_zip
-        self.output_csv = output_csv
+        self.dir = Helpers().normalize_path(dir)
+        self.tiff = Helpers().normalize_path(tiff)
+        self.roi_zip = Helpers().normalize_path(roi_zip)
+        self.output_csv = Helpers().normalize_path(output_csv)
         self.seconds_per_frame = seconds_per_frame
     def load_rois(self):
         if self.roi_zip.endswith('.zip'):
@@ -275,7 +275,7 @@ class RoiMeasurer:
         
         results = []
         #load tiff file and go through tiff pages in the movie one by one 
-        tiff_path = os.path.join(self.dir, self.tiff)
+        tiff_path = Helpers().normalize_path(os.path.join(self.dir, self.tiff))
         with tifffile.TiffFile(tiff_path) as tif:
             n_frames = len(tif.pages)
             #csv header, start with empty first cell for frames column

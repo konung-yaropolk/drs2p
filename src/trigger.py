@@ -79,7 +79,7 @@ class Trigger:
             ).run()
 
     def _measure_rois(self):
-       
+
         derivatives_dir = Helpers().normalize_path(os.path.join(
             self.run_config.working_dir,
             self.movie_config.file_name + DERIVATIVES_SUBFOLDER_NAME + self.trigger_config.label))
