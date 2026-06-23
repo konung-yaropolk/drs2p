@@ -3,6 +3,7 @@ import os
 import argparse
 import traceback
 from ruamel.yaml import YAML
+from stabilization import Stabilization
 
 from config import RunConfig, MovieConfig, TriggerConfig
 from trigger import Trigger 
@@ -158,6 +159,12 @@ def main(config_path):
         #      or t.vertical_shift_of_trig],
         #     key=lambda t: t.trig_number
         # )
+         # stabilization once per movie - before any triggers
+        if movie_config.movie_stabilization:
+            stabilizer = Stabilization(run_config, movie_config)
+            stabilizer.run()
+            # update file_name to point to registered file
+            movie_config.file_name = movie_config.file_name[:-4] + '_registered_full.tif'
         for trigger in sorted(movie_config.triggers, key=lambda t: t.trig_number):
             print(f"Processing movie: {movie_config.file_name}, trigger: {trigger.trig_number}, label: {trigger.label}")
             try:
