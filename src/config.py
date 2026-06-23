@@ -127,7 +127,7 @@ class RunConfig:
     roi_file_index: Optional[int] = 2
     movie_stabilization: bool = False
     stabilization_batch_size: int = 700
-    stabilization_nonrigid: bool = True
+    stabilization_nonrigid: bool = False
     run_csv_multimeasure: bool = True
 
     
