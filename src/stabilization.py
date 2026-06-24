@@ -128,12 +128,14 @@
 
 # plt.imshow(data, cmap='gray')
 # plt.title("Mean registered image")
-import numpy as np
+import os
 import glob
+import numpy as np
 from natsort import natsorted
 from tifffile import imread, imwrite
 import suite2p
-import os
+import torch
+
 
 class Stabilization:
     def __init__(self, run_config, movie_config):
@@ -232,7 +234,7 @@ class Stabilization:
             'reg_tif_chan2': False,
             'upsample_meanImg': False,
         }
-        import torch
+        
 
         result = suite2p.registration_wrapper(
             f_reg,

@@ -10,3 +10,6 @@ AutoStatLib>=0.4.4
 ruamel.yaml
 tifffile
 roifile
+natsort
+suite2p
+torch
