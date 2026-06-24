@@ -55,6 +55,8 @@ class MovieConfig: #since one yaml can specify multipl experiments, there is a s
     run_csv_multimeasure: Optional[bool] = None
 
     movie_stabilization: Optional[bool] = None
+    stabilization_batch_size: Optional[int] = None
+    stabilization_nonrigid: Optional[bool] = None
     
     # ALL analysis defaults live here and only here
     relative_values: Optional[bool] = None # plot and calculate in for of dF/F0 (almost always true unless certain exotic cases)
@@ -123,7 +125,9 @@ class RunConfig:
     processes_limit: int = 10
     roi_detection: Literal['all', 'manual', 'skip', "fixed"] = 'manual' #"all" - takes rois for all derrivatives, manual - asks user for each, skip - skips, fixed - determined by roi_file_index
     roi_file_index: Optional[int] = 2
-    movie_stabilization: bool = True
+    movie_stabilization: bool = False
+    stabilization_batch_size: int = 700
+    stabilization_nonrigid: bool = False
     run_csv_multimeasure: bool = True
 
     
