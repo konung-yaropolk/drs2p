@@ -196,19 +196,19 @@ class TracesCalc(Helpers, Debug):
             # Calculate baseline
             baseline = np.mean(trace[bl_indices])
             # Baseline correction
-            corrected_trace = trace - baseline
+            baselined_trace = trace - baseline
             # Peak amplitude in signal period
-            ampl = np.max(corrected_trace[sig_indices])
+            ampl = np.max(baselined_trace[sig_indices])
             ampl_list.append(ampl)
             # AUC in signal period
-            auc = np.trapezoid(corrected_trace[sig_indices], x[sig_indices])
+            auc = np.trapezoid(baselined_trace[sig_indices], x[sig_indices])
             auc_list.append(auc)
             # Signal-to-noise ratio
             snr_list.append(ampl /  np.std(trace[bl_indices]))
             # Binarization
             bin_list.append(ampl > self.trigger_config.sigmas_treshold * np.std(trace[bl_indices]))
 
-            raw_line_list.append(corrected_trace[whole_step_indices])
+            raw_line_list.append(baselined_trace[whole_step_indices])
 
             # # Debug responce binarization 
             # # needed only during dev
@@ -216,7 +216,7 @@ class TracesCalc(Helpers, Debug):
             #                             np.std(trace[bl_indices])}")
             # self.plot_traces(
             #     whole_step_indices,
-            #     [corrected_trace[whole_step_indices]],
+            #     [baselined_trace[whole_step_indices]],
             #     [[bl_indices[0],bl_indices[-1]], [sig_indices[0],sig_indices[-1]]],
             #     ".png",
             #     save=False,
