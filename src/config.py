@@ -125,9 +125,11 @@ class RunConfig:
     processes_limit: int = 10
     roi_detection: Literal['all', 'manual', 'skip', "fixed"] = 'manual' #"all" - takes rois for all derrivatives, manual - asks user for each, skip - skips, fixed - determined by roi_file_index
     roi_file_index: Optional[int] = 2
+
     movie_stabilization: bool = False
     stabilization_batch_size: int = 700
     stabilization_nonrigid: bool = False
+    
     run_csv_multimeasure: bool = True
 
     

@@ -75,7 +75,8 @@ METRIC_FILES = {
     "AUC C":    "_AUC_C_rows-roi_cols-epoch__auto_.csv",
 }
 METRICS = list(METRIC_FILES)
-SNR_FILE = "_SNR_C_rows-roi_cols-epoch__auto_.csv"
+SNR_AC_FILE = "_SNR_A&C_rows-roi_cols-epoch__auto_.csv"
+SNR_C_FILE  = "_SNR_C_rows-roi_cols-epoch__auto_.csv"
 
 # A valid calculation folder: date (+ optional _M#) followed by _Field ... CALCULATIONS_auto_
 DIR_RE = re.compile(r"^(\d{4}_\d{2}_\d{2}(?:_M\d+)?)_Field.*CALCULATIONS_auto_$")
@@ -86,8 +87,9 @@ CALC_SUFFIX = "_CALCULATIONS_auto_"
 # (left/right are 0-based indices into an output row; anchor is the Excel column
 #  letter under which the plot is dropped -- "B" = cols 2-3, "F" = cols 6-7.)
 COMPARISONS = [
-    {"left": 1, "right": 2, "names": ["Ampl A&C", "Ampl C"], "anchor": "B"},
-    {"left": 5, "right": 6, "names": ["AUC A&C", "AUC C"],   "anchor": "F"},
+    {"left": 1, "right": 2, "names": ["Ampl A&C",        "Ampl C"],        "anchor": "B", "y_label": "Ampl"},
+    {"left": 5, "right": 6, "names": ["AUC A&C",         "AUC C"],         "anchor": "F", "y_label": "AUC"},
+    {"left": 9, "right": 10, "names": ["% AP A&C", "% AP C"], "anchor": "J", "y_label": "AP success % "},
 ]
 
 
@@ -110,14 +112,21 @@ def filtered_matrices_for_folder(out_dir: Path):
 
     Returns None (and warns) if a required file is missing or shapes mismatch.
     """
-    snr_path = out_dir / SNR_FILE
-    if not snr_path.exists():
-        print(f"  ! missing {SNR_FILE} in {out_dir.name}; skipping folder")
+    snr_c_path = out_dir / SNR_C_FILE
+    if not snr_c_path.exists():
+        print(f"  ! missing {SNR_C_FILE} in {out_dir.name}; skipping folder")
         return None
 
-    bin_df = snr_to_bin(snr_path)
+    snr_ac_path = out_dir / SNR_AC_FILE
+    if not snr_ac_path.exists():
+        print(f"  ! missing {SNR_AC_FILE} in {out_dir.name}; skipping folder")
+        return None
+
+    bin_c  = snr_to_bin(snr_c_path)
+    bin_ac = snr_to_bin(snr_ac_path)
+
     # Per-ROW (per-ROI) fraction of cells above SNR threshold; keep rows at/above ROI_THRESHOLD.
-    keep_mask = bin_df.mean(axis=1) >= ROI_THRESHOLD
+    keep_mask = bin_c.mean(axis=1) >= ROI_THRESHOLD
 
     result = {}
     for metric, fname in METRIC_FILES.items():
@@ -127,11 +136,16 @@ def filtered_matrices_for_folder(out_dir: Path):
             return None
 
         mat = read_matrix(fpath)
-        if mat.shape[0] != bin_df.shape[0]:
+        if mat.shape[0] != bin_c.shape[0]:
             print(f"  ! shape mismatch for {fname} in {out_dir.name}; skipping folder")
             return None
 
         result[metric] = mat[keep_mask.values]
+
+    # Per-ROI AP success rate (fraction of epochs above SNR threshold) for ALL ROIs (no filter).
+    result["AP A&C"]    = bin_ac.mean(axis=1)
+    result["AP C"]      = bin_c.mean(axis=1)
+    result["keep_mask"] = keep_mask          # bool Series over all ROI indices
     return result
 
 
@@ -184,12 +198,13 @@ def collect_instances(work_folder: Path):
 
 
 def make_row(label, vals):
-    """Build one output row (with ratios and the blank separator column)."""
+    """Build one output row (with ratios and blank separator columns)."""
     ampl_ac, ampl_c = vals["Ampl A&C"], vals["Ampl C"]
-    auc_ac, auc_c = vals["AUC A&C"], vals["AUC C"]
+    auc_ac, auc_c   = vals["AUC A&C"],  vals["AUC C"]
     ampl_ratio = ampl_ac / ampl_c if ampl_c else ""
-    auc_ratio = auc_ac / auc_c if auc_c else ""
-    return [label, ampl_ac, ampl_c, ampl_ratio, "", auc_ac, auc_c, auc_ratio]
+    auc_ratio  = auc_ac  / auc_c  if auc_c  else ""
+    return [label, ampl_ac, ampl_c, ampl_ratio, "", auc_ac, auc_c, auc_ratio,
+            "", vals["AP A&C"], vals["AP C"]]
 
 
 def day_rows(instances):
@@ -201,22 +216,45 @@ def day_rows(instances):
             cells = [mats[metric].to_numpy().ravel() for _, mats in instances[instance]]
             pooled = np.concatenate(cells) if cells else np.array([])
             vals[metric] = np.nanmean(pooled) if pooled.size else float("nan")
+        # AP success rate: mean of per-ROI rates across all folders, scaled to %.
+        for ap_key in ("AP A&C", "AP C"):
+            rates = [mats[ap_key].to_numpy() for _, mats in instances[instance]]
+            pooled = np.concatenate(rates) if rates else np.array([])
+            vals[ap_key] = np.nanmean(pooled) * 100 if pooled.size else float("nan")
         rows.append(make_row(instance, vals))
     return rows
 
 
 def roi_rows(folders):
-    """One row per surviving ROI: value = mean across that ROI's epochs."""
+    """One row per ROI (all ROIs, not just surviving ones).
+
+    Surviving ROIs get Ampl, AUC and AP values.
+    Filtered-out ROIs get a label and AP values only; Ampl/AUC cells are empty.
+    """
     rows = []
     for token, mats in folders:
-        means = {metric: mats[metric].mean(axis=1) for metric in METRICS}
-        for roi_idx in means["Ampl A&C"].index:
-            vals = {metric: means[metric].loc[roi_idx] for metric in METRICS}
-            rows.append(make_row(f"{token}_roi{roi_idx}", vals))
+        keep_mask = mats["keep_mask"]
+        surviving_means = {metric: mats[metric].mean(axis=1) for metric in METRICS}
+        ap_ac = mats["AP A&C"]
+        ap_c  = mats["AP C"]
+
+        for roi_idx in ap_ac.index:  # all ROIs
+            label      = f"{token}_roi{roi_idx}"
+            ap_ac_val  = float(ap_ac.loc[roi_idx]) * 100
+            ap_c_val   = float(ap_c.loc[roi_idx])  * 100
+
+            if keep_mask.loc[roi_idx]:
+                vals = {metric: surviving_means[metric].loc[roi_idx] for metric in METRICS}
+                vals["AP A&C"] = ap_ac_val
+                vals["AP C"]   = ap_c_val
+                rows.append(make_row(label, vals))
+            else:
+                # Filtered ROI: empty Ampl/AUC columns, AP columns still filled.
+                rows.append([label, "", "", "", "", "", "", "", "", ap_ac_val, ap_c_val])
     return rows
 
 
-def wilcoxon_barplot(group_left, group_right, names, png_path: Path):
+def wilcoxon_barplot(group_left, group_right, names, png_path: Path, y_label: str = ""):
     """Run a paired Wilcoxon test on two columns and save a bar plot.
 
     Returns the exact p-value (or None if the test could not run).
@@ -237,7 +275,7 @@ def wilcoxon_barplot(group_left, group_right, names, png_path: Path):
         Test_Name=res.get("Test_Name", "Wilcoxon signed-rank test"),
         Paired_Test_Applied=True,
         Groups_Name=names,
-        y_label=names[0].split()[0],  # "Ampl" / "AUC"
+        y_label=y_label,
         figure_scale_factor=1.0,
     )
     plot.plot()
@@ -250,7 +288,8 @@ def write_xlsx(id_label, rows, out_path: Path):
     """Write one summary sheet as .xlsx, then run Wilcoxon tests on the
     Ampl (cols 2-3) and AUC (cols 6-7) pairs and embed the bar plots just
     below the last data row, under their respective columns."""
-    header = [id_label, "Ampl A&C", "Ampl C", "Ampl A&C/C", "", "AUC A&C", "AUC C", "AUC A&C/C"]
+    header = [id_label, "Ampl A&C", "Ampl C", "Ampl C/A&C", "", "AUC A&C", "AUC C", "AUC C/A&C",
+              "", "% AP success A&C", "% AP success C"]
     wb = Workbook()
     ws = wb.active
     ws.title = "summary"
@@ -265,10 +304,13 @@ def write_xlsx(id_label, rows, out_path: Path):
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
         for i, cmp in enumerate(COMPARISONS):
-            left = [r[cmp["left"]] for r in rows]
-            right = [r[cmp["right"]] for r in rows]
+            # Keep only rows where both values are numeric (drops empty cells from filtered ROIs).
+            pairs = [(r[cmp["left"]], r[cmp["right"]]) for r in rows
+                     if isinstance(r[cmp["left"]], (int, float))
+                     and isinstance(r[cmp["right"]], (int, float))]
+            left, right = (list(x) for x in zip(*pairs)) if pairs else ([], [])
             png = tmp / f"plot_{i}.png"
-            p = wilcoxon_barplot(left, right, cmp["names"], png)
+            p = wilcoxon_barplot(left, right, cmp["names"], png, y_label=cmp["y_label"])
             img = XLImage(str(png))
             img.width  = img.width  // 2
             img.height = img.height // 2

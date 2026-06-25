@@ -94,6 +94,7 @@ class Trigger:
         if not roi_zips:
             print(f"No ROI zip files found in {derivatives_dir}")
             return
+        print(f"Found ROI files in {derivatives_dir}:")
         for roi_zip in roi_zips:
             roi_zip_path = os.path.join(derivatives_dir, roi_zip)
             roi_zip_path = Helpers().normalize_path(roi_zip_path)

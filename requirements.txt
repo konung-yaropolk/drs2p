@@ -13,3 +13,4 @@ roifile
 natsort
 suite2p
 torch
+pynwb

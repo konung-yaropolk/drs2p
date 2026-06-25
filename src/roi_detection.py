@@ -64,9 +64,10 @@ function detectAndSaveParticles(savepath) {{
 open("{Helpers().normalize_path(os.path.join(self.dir, self.derivative_tiff), target="posix")}");
 title = getTitle();
 detectAndSaveParticles("{Helpers().normalize_path(roi_path, target="posix")}");
-eval("script", "System.exit(0);");
+//eval("script", "System.exit(0);");    // Mac specific exit
+run("Quit");                            // Windows specific exit
 """
-    
+
 class RoiMeasurer:
     def __init__(self, dir, tiff, roi_zip, output_csv, seconds_per_frame):
         self.dir = Helpers().normalize_path(dir)
