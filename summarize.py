@@ -254,7 +254,7 @@ def roi_rows(folders):
     return rows
 
 
-def wilcoxon_barplot(group_left, group_right, names, png_path: Path, y_label: str = ""):
+def wilcoxon_barplot(group_left, group_right, names, png_path: Path, y_label: str = "", plot_title: str = ""):
     """Run a paired Wilcoxon test on two columns and save a bar plot.
 
     Returns the exact p-value (or None if the test could not run).
@@ -265,18 +265,16 @@ def wilcoxon_barplot(group_left, group_right, names, png_path: Path, y_label: st
         groups_name=names,
         verbose=False,
     )
-    analysis.RunWilcoxon()
+    analysis.RunAuto()
     res = analysis.GetResult() or {}
     p_exact = res.get("p_value_exact")
 
     plot = AutoStatLib.BarStatPlot(
-        data_groups=[list(group_left), list(group_right)],
-        p_value_exact=p_exact,
-        Test_Name=res.get("Test_Name", "Wilcoxon signed-rank test"),
-        Paired_Test_Applied=True,
-        Groups_Name=names,
+        data_groups=res['Samples'],
+        plot_title=plot_title,
         y_label=y_label,
         figure_scale_factor=1.0,
+        **res,
     )
     plot.plot()
     plot.save(str(png_path), format="png", dpi=150, transparent=False)
@@ -284,7 +282,7 @@ def wilcoxon_barplot(group_left, group_right, names, png_path: Path, y_label: st
     return p_exact
 
 
-def write_xlsx(id_label, rows, out_path: Path):
+def write_xlsx(id_label, rows, out_path: Path, plot_title: str = ""):
     """Write one summary sheet as .xlsx, then run Wilcoxon tests on the
     Ampl (cols 2-3) and AUC (cols 6-7) pairs and embed the bar plots just
     below the last data row, under their respective columns."""
@@ -310,7 +308,7 @@ def write_xlsx(id_label, rows, out_path: Path):
                      and isinstance(r[cmp["right"]], (int, float))]
             left, right = (list(x) for x in zip(*pairs)) if pairs else ([], [])
             png = tmp / f"plot_{i}.png"
-            p = wilcoxon_barplot(left, right, cmp["names"], png, y_label=cmp["y_label"])
+            p = wilcoxon_barplot(left, right, cmp["names"], png, y_label=cmp["y_label"], plot_title=plot_title)
             img = XLImage(str(png))
             img.width  = img.width  // 2
             img.height = img.height // 2
@@ -336,14 +334,14 @@ def main():
 
         # ROOT-level summary: one row per day.
         root_path = ROOT / f"{SUMMARY_PREFIX}{work_folder.name}.xlsx"
-        write_xlsx("instance", day_rows(instances), root_path)
+        write_xlsx("instance", day_rows(instances), root_path, plot_title="Statistics on mice")
         print(f"Wrote {len(instances)} day(s) to {root_path}")
 
         # Local per-day summaries (rows = ROIs) inside the working folder.
         for instance in sorted(instances):
             rows = roi_rows(instances[instance])
             local_path = work_folder / f"{LOCAL_PREFIX}{instance}.xlsx"
-            write_xlsx("ROI", rows, local_path)
+            write_xlsx("ROI", rows, local_path, plot_title=f"Statistic on rois\n{instance}")
             print(f"    local: {len(rows)} ROI(s) -> {local_path}")
 
         processed += 1
