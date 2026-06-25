@@ -334,13 +334,19 @@ def main():
 
         # ROOT-level summary: one row per day.
         root_path = ROOT / f"{SUMMARY_PREFIX}{work_folder.name}.xlsx"
-        write_xlsx("instance", day_rows(instances), root_path, plot_title="Statistics on mice")
-        print(f"Wrote {len(instances)} day(s) to {root_path}")
+        if root_path.exists():
+            print(f"Skipping {root_path.name} (already exists)")
+        else:
+            write_xlsx("instance", day_rows(instances), root_path, plot_title="Statistics on mice")
+            print(f"Wrote {len(instances)} day(s) to {root_path}")
 
         # Local per-day summaries (rows = ROIs) inside the working folder.
         for instance in sorted(instances):
-            rows = roi_rows(instances[instance])
             local_path = work_folder / f"{LOCAL_PREFIX}{instance}.xlsx"
+            if local_path.exists():
+                print(f"    Skipping {local_path.name} (already exists)")
+                continue
+            rows = roi_rows(instances[instance])
             write_xlsx("ROI", rows, local_path, plot_title=f"Statistic on rois\n{instance}")
             print(f"    local: {len(rows)} ROI(s) -> {local_path}")
 
