@@ -67,16 +67,17 @@ SNR_THRESHOLD = 5.0
 # Keep a ROI only if at least this fraction of its cells pass the SNR threshold.
 ROI_THRESHOLD = 0.37
 
-# Metric -> csv file name inside each outputs_ folder. Order defines column order.
+# Metric -> glob pattern inside each outputs_ folder. Order defines column order.
+# The wildcard covers varying suffixes like __auto_ vs __Control_auto_ etc.
 METRIC_FILES = {
-    "Ampl A&C": "_Ampl_A&C_rows-roi_cols-epoch__auto_.csv",
-    "Ampl C":   "_Ampl_C_rows-roi_cols-epoch__auto_.csv",
-    "AUC A&C":  "_AUC_A&C_rows-roi_cols-epoch__auto_.csv",
-    "AUC C":    "_AUC_C_rows-roi_cols-epoch__auto_.csv",
+    "Ampl A&C": "_Ampl_A&C_rows-roi_cols-epoch_*.csv",
+    "Ampl C":   "_Ampl_C_rows-roi_cols-epoch_*.csv",
+    "AUC A&C":  "_AUC_A&C_rows-roi_cols-epoch_*.csv",
+    "AUC C":    "_AUC_C_rows-roi_cols-epoch_*.csv",
 }
 METRICS = list(METRIC_FILES)
-SNR_AC_FILE = "_SNR_A&C_rows-roi_cols-epoch__auto_.csv"
-SNR_C_FILE  = "_SNR_C_rows-roi_cols-epoch__auto_.csv"
+SNR_AC_FILE = "_SNR_A&C_rows-roi_cols-epoch_*.csv"
+SNR_C_FILE  = "_SNR_C_rows-roi_cols-epoch_*.csv"
 
 # A valid calculation folder: date (+ optional _M#) followed by _Field ... CALCULATIONS_auto_
 DIR_RE = re.compile(r"^(\d{4}_\d{2}_\d{2}(?:_M\d+)?)_Field.*CALCULATIONS_auto_$")
@@ -112,13 +113,17 @@ def filtered_matrices_for_folder(out_dir: Path):
 
     Returns None (and warns) if a required file is missing or shapes mismatch.
     """
-    snr_c_path = out_dir / SNR_C_FILE
-    if not snr_c_path.exists():
+    def resolve(pattern):
+        """Return the first file matching a glob pattern, or None."""
+        return next(out_dir.glob(pattern), None)
+
+    snr_c_path = resolve(SNR_C_FILE)
+    if snr_c_path is None:
         print(f"  ! missing {SNR_C_FILE} in {out_dir.name}; skipping folder")
         return None
 
-    snr_ac_path = out_dir / SNR_AC_FILE
-    if not snr_ac_path.exists():
+    snr_ac_path = resolve(SNR_AC_FILE)
+    if snr_ac_path is None:
         print(f"  ! missing {SNR_AC_FILE} in {out_dir.name}; skipping folder")
         return None
 
@@ -129,15 +134,15 @@ def filtered_matrices_for_folder(out_dir: Path):
     keep_mask = bin_c.mean(axis=1) >= ROI_THRESHOLD
 
     result = {}
-    for metric, fname in METRIC_FILES.items():
-        fpath = out_dir / fname
-        if not fpath.exists():
-            print(f"  ! missing {fname} in {out_dir.name}; skipping folder")
+    for metric, pattern in METRIC_FILES.items():
+        fpath = resolve(pattern)
+        if fpath is None:
+            print(f"  ! missing {pattern} in {out_dir.name}; skipping folder")
             return None
 
         mat = read_matrix(fpath)
         if mat.shape[0] != bin_c.shape[0]:
-            print(f"  ! shape mismatch for {fname} in {out_dir.name}; skipping folder")
+            print(f"  ! shape mismatch for {pattern} in {out_dir.name}; skipping folder")
             return None
 
         result[metric] = mat[keep_mask.values]
