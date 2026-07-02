@@ -147,7 +147,7 @@ class Stabilization:
             movie_config.file_name)
         self.output_path = os.path.join(
             run_config.working_dir,
-            movie_config.file_name[:-4] + '_registered_full.tif'
+            movie_config.file_name[:-4] + '_registered.tif'
         )
     
     def run(self):
@@ -160,7 +160,7 @@ class Stabilization:
         del data # free memory
         self._register(f_raw, f_reg)
         self._stitch_output()
-        self._cleanup()
+        #self._cleanup()
         print(f"Saved to {self.output_path}")
 
     
@@ -245,7 +245,7 @@ class Stabilization:
             align_by_chan2=False,
             save_path=self.run_config.working_dir,
             settings=reg_settings,
-            device=torch.device('mps')
+            device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),  # or 'mps' for Mac gpu support
 
         )
     def _stitch_output(self):
