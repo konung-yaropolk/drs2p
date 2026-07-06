@@ -291,7 +291,7 @@ def write_xlsx(id_label, rows, out_path: Path, plot_title: str = ""):
     """Write one summary sheet as .xlsx, then run Wilcoxon tests on the
     Ampl (cols 2-3) and AUC (cols 6-7) pairs and embed the bar plots just
     below the last data row, under their respective columns."""
-    header = [id_label, "Ampl A&C", "Ampl C", "Ampl C/A&C", "", "AUC A&C", "AUC C", "AUC C/A&C",
+    header = [id_label, "Ampl A&C", "Ampl C", "Ampl A&C/C", "", "AUC A&C", "AUC C", "AUC A&C/C",
               "", "% AP success A&C", "% AP success C"]
     wb = Workbook()
     ws = wb.active
