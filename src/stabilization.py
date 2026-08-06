@@ -255,7 +255,7 @@ class Stabilization:
         
         arrays = [imread(f) for f in tiff_files]
         full_movie = np.concatenate(arrays, axis=0)
-        imwrite(self.output_path, full_movie)
+        imwrite(self.output_path, full_movie, imagej=True, compression='zlib')
         print(f"Stitched {len(arrays)} chunks → {full_movie.shape}")
     
     def _cleanup(self):
