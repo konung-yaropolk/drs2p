@@ -5,12 +5,15 @@ import AutoStatLib
 import matplotlib.pyplot as plt
 import numpy as np
 
+from matplotlib.backends.backend_pdf import PdfPages
+
 from debug import Debug
 from helpers import Helpers
 
 CALCULATIONS_SUBFOLDER_NAME = "_CALCULATIONS_auto_"
 BINARIZATION_RESP_THRESHOLD = 0.29
 PLOT_STATS_FOR_EACH_ROI = False    # significantly slows down the traces calculation when massive amount of rois
+LETTER_FIGSIZE = (8.5, 11)    # printable letter format, portrait; use (11, 8.5) for landscape
 DEBUG = True
 
 
@@ -865,6 +868,23 @@ class TracesCalc(Helpers, Debug):
         if DEBUG:
             self.debug_sync_during_trace_calculation(csv_path, output_dir)
 
+        # st1(s1s2) to st2(s2) ampl ratio by epoch,
+        # plotted as small bars on the right of each stacked trace
+        if (s1s2 or s1) and s2:
+            with np.errstate(divide="ignore", invalid="ignore"):
+                ampl_st1_to_st2_ratio_rois_by_epoch = 1 / np.array(
+                    ampl_st2_to_st1_ratio_rois_by_epoch, dtype=float
+                )
+            finite_ratios = ampl_st1_to_st2_ratio_rois_by_epoch[
+                np.isfinite(ampl_st1_to_st2_ratio_rois_by_epoch)
+            ]
+            ampl_st1_to_st2_ratio_max = (
+                np.max(finite_ratios) if finite_ratios.size else 1
+            )
+        else:
+            ampl_st1_to_st2_ratio_rois_by_epoch = None
+            ampl_st1_to_st2_ratio_max = None
+
             # plot_stacked_traces all togather
         for i in self.group_names:
             os.makedirs(
@@ -874,6 +894,17 @@ class TracesCalc(Helpers, Debug):
                 exist_ok=True,
             )
 
+        # one multipage PDF per group, collecting every stacked traces page
+        stacked_pdfs = [
+            PdfPages(
+                "{0}{1}/_by_rois_traces_bin_{2}_{3}_auto_/{4}_{2}_traces_stacked.pdf".format(
+                    csv_path, output_dir, group, self.output_suffix, self.file_nosuffix
+                )
+            )
+            for group in self.group_names
+        ]
+
+        # printable letter format: all the traces stacked
         self.plot_stacked_traces(
             np.array(matrix_T[0])
             - (self.trigger_config.start_from_epoch * self.trigger_config.step_duration * self.n_steps_per_epoch),
@@ -884,8 +915,31 @@ class TracesCalc(Helpers, Debug):
                 csv_path, output_dir, self.group_names[0], self.output_suffix
             ),
             vertical_shift=vertical_shift,
-            delay=0,
+            delay=self.s2_delay,
+            ratio_by_rois=ampl_st1_to_st2_ratio_rois_by_epoch,
+            ratio_max=ampl_st1_to_st2_ratio_max,
+            figsize=LETTER_FIGSIZE,
+            pdf=stacked_pdfs[0],
         )
+        # printable letter format: only the responsive (green) traces
+        self.plot_stacked_traces(
+            np.array(matrix_T[0])
+            - (self.trigger_config.start_from_epoch * self.trigger_config.step_duration * self.n_steps_per_epoch),
+            matrix_T[:],
+            s1s2_bin_list_each_by_epoch,
+            st1_bin_summary_by_rois,
+            "{0}{1}/_by_rois_traces_bin_{2}_{3}_auto_/_full_traces_stacked_by_rois_responsive_auto_.png".format(
+                csv_path, output_dir, self.group_names[0], self.output_suffix
+            ),
+            vertical_shift=vertical_shift,
+            delay=self.s2_delay,
+            ratio_by_rois=ampl_st1_to_st2_ratio_rois_by_epoch,
+            ratio_max=ampl_st1_to_st2_ratio_max,
+            figsize=LETTER_FIGSIZE,
+            only_responsive=True,
+            pdf=stacked_pdfs[0],
+        )
+        # printable letter format: all the traces stacked
         self.plot_stacked_traces(
             np.array(matrix_T[0])
             - (self.trigger_config.start_from_epoch * self.trigger_config.step_duration * self.n_steps_per_epoch),
@@ -897,9 +951,31 @@ class TracesCalc(Helpers, Debug):
             ),
             vertical_shift=vertical_shift,
             delay=self.s2_delay,
+            ratio_by_rois=ampl_st1_to_st2_ratio_rois_by_epoch,
+            ratio_max=ampl_st1_to_st2_ratio_max,
+            figsize=LETTER_FIGSIZE,
+            pdf=stacked_pdfs[1],
+        )
+        # printable letter format: only the responsive (green) traces
+        self.plot_stacked_traces(
+            np.array(matrix_T[0])
+            - (self.trigger_config.start_from_epoch * self.trigger_config.step_duration * self.n_steps_per_epoch),
+            matrix_T[:],
+            s2_bin_list_each_by_epoch,
+            st2_bin_summary_by_rois,
+            "{0}{1}/_by_rois_traces_bin_{2}_{3}_auto_/_full_traces_stacked_by_rois_responsive_auto_.png".format(
+                csv_path, output_dir, self.group_names[1], self.output_suffix
+            ),
+            vertical_shift=vertical_shift,
+            delay=self.s2_delay,
+            ratio_by_rois=ampl_st1_to_st2_ratio_rois_by_epoch,
+            ratio_max=ampl_st1_to_st2_ratio_max,
+            figsize=LETTER_FIGSIZE,
+            only_responsive=True,
+            pdf=stacked_pdfs[1],
         )
 
-        # plot_stacked_traces by groups
+        # plot_stacked_traces by groups, printable letter format
         chunk_size = 20
         for pos in range(0, len(self.csv_matrix[0]) - 1, chunk_size):
             self.plot_stacked_traces(
@@ -922,6 +998,14 @@ class TracesCalc(Helpers, Debug):
                 ),
                 vertical_shift=vertical_shift,
                 delay=self.s2_delay,
+                ratio_by_rois=(
+                    None
+                    if ampl_st1_to_st2_ratio_rois_by_epoch is None
+                    else ampl_st1_to_st2_ratio_rois_by_epoch[pos : pos + chunk_size + 1]
+                ),
+                ratio_max=ampl_st1_to_st2_ratio_max,
+                figsize=LETTER_FIGSIZE,
+                pdf=stacked_pdfs[0],
             )
         for pos in range(0, len(self.csv_matrix[0]) - 1, chunk_size):
             self.plot_stacked_traces(
@@ -944,7 +1028,18 @@ class TracesCalc(Helpers, Debug):
                 ),
                 vertical_shift=vertical_shift,
                 delay=self.s2_delay,
+                ratio_by_rois=(
+                    None
+                    if ampl_st1_to_st2_ratio_rois_by_epoch is None
+                    else ampl_st1_to_st2_ratio_rois_by_epoch[pos : pos + chunk_size + 1]
+                ),
+                ratio_max=ampl_st1_to_st2_ratio_max,
+                figsize=LETTER_FIGSIZE,
+                pdf=stacked_pdfs[1],
             )
+
+        for stacked_pdf in stacked_pdfs:
+            stacked_pdf.close()
 
         # # plot_traces_by_rois
         # for i in range(len(s1s2_raw_line_list)):
@@ -1060,13 +1155,33 @@ class TracesCalc(Helpers, Debug):
         plt.close()
 
     def plot_stacked_traces(
-        self, x, array, bin, bin_summary_by_rois, path, vertical_shift=1, delay=0
+        self,
+        x,
+        array,
+        bin,
+        bin_summary_by_rois,
+        path,
+        vertical_shift=1,
+        delay=0,
+        ratio_by_rois=None,
+        ratio_max=None,
+        figsize=(10, 10),
+        only_responsive=False,
+        pdf=None,
     ):
-        plt.figure(figsize=(10, 10))
+        fig = plt.figure(figsize=figsize, dpi=300)
 
-        for i, y in enumerate(array[1:]):
+        # rois to plot: all of them, or only the responsive (green) ones
+        rois = [
+            i
+            for i in range(len(array) - 1)
+            if not only_responsive or bin_summary_by_rois[i]
+        ]
+
+        for pos, i in enumerate(rois):
+            y = array[i + 1]
             color = "g-" if bin_summary_by_rois[i] else "k-"
-            vertical_shifted_y = [val + i * vertical_shift for val in y]
+            vertical_shifted_y = [val + pos * vertical_shift for val in y]
             plt.plot(x, vertical_shifted_y, color, linewidth=0.7, alpha=1)
 
             plt.plot(
@@ -1078,7 +1193,7 @@ class TracesCalc(Helpers, Debug):
                     )
                     for j, dot in enumerate(bin[i])
                 ],
-                [i * vertical_shift] * len((bin[i])),
+                [pos * vertical_shift] * len((bin[i])),
                 "rx",
             )
 
@@ -1090,6 +1205,70 @@ class TracesCalc(Helpers, Debug):
 
         # Remove y-axis ticks
         ax.set_yticks([])
+
+        # small bar plot to the right of each trace:
+        # one bar per epoch with the st1(s1s2) to st2(s2) ampl ratio
+        if ratio_by_rois is not None and len(ratio_by_rois):
+            x_span = np.max(x) - np.min(x)
+            bars_block_width = x_span * 0.05  # 5% of the trace width
+            bars_start = np.max(x) + x_span * 0.01  # small gap after the trace
+
+            ratios = [
+                (pos, i, np.asarray(ratio_by_rois[i], dtype=float).ravel())
+                for pos, i in enumerate(rois)
+                if i < len(ratio_by_rois)
+            ]
+
+            if not ratio_max:
+                finite = (
+                    np.concatenate([values for _, _, values in ratios])
+                    if ratios
+                    else np.array([])
+                )
+                finite = finite[np.isfinite(finite)]
+                ratio_max = np.max(finite) if finite.size else 0
+            if not ratio_max or ratio_max <= 0:
+                ratio_max = 1
+
+            positions, widths, heights, bottoms, colors = [], [], [], [], []
+            scale_levels = []
+            for pos, i, values in ratios:
+                if not values.size:
+                    continue
+                bar_step = bars_block_width / values.size
+                for j, value in enumerate(values):
+                    if not np.isfinite(value) or value <= 0:
+                        continue
+                    positions.append(bars_start + (j + 0.5) * bar_step)
+                    widths.append(bar_step * 0.8)
+                    heights.append(min(value / ratio_max, 1) * vertical_shift * 0.8)
+                    bottoms.append(pos * vertical_shift)
+                    colors.append("g" if bin_summary_by_rois[i] else "k")
+                # level of the ratio = 1 on the bars scale
+                scale_levels.append(
+                    (pos * vertical_shift)
+                    + min(1 / ratio_max, 1) * vertical_shift * 0.8
+                )
+
+            ax.bar(
+                positions,
+                heights,
+                width=widths,
+                bottom=bottoms,
+                color=colors,
+                linewidth=0,
+            )
+
+            # gray dotted line marking the ratio = 1 level of the bars
+            ax.hlines(
+                scale_levels,
+                bars_start,
+                bars_start + bars_block_width,
+                colors="magenta",
+                linestyles=":",
+                linewidth=0.7,
+                zorder=3,
+            )
 
         ax.errorbar(
             -15,
@@ -1106,18 +1285,20 @@ class TracesCalc(Helpers, Debug):
             -15, -1.0, "1 ΔF/F₀", horizontalalignment="center", verticalalignment="top"
         )
 
-        for i, y in enumerate(array[1:]):
+        for pos, i in enumerate(rois):
             plt.text(
                 -20,
-                (i * vertical_shift),
+                (pos * vertical_shift),
                 f"{i+1}",
                 horizontalalignment="center",
                 verticalalignment="bottom",
             )
 
-        # Save the plot as plot.png
+        # Save the plot as plot.png, and as a page of the multipage PDF
         plt.tight_layout()
         plt.savefig(path, transparent=False)
+        if pdf is not None:
+            pdf.savefig(fig)
         plt.close()
 
     def plot_heatmap(self, matrix, path, bin=[], bin_summary_by_rois=[], delay=0, vmin=0, vmax=2.5, norm=None):
