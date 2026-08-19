@@ -14,6 +14,7 @@ CALCULATIONS_SUBFOLDER_NAME = "_CALCULATIONS_auto_"
 BINARIZATION_RESP_THRESHOLD = 0.29
 PLOT_STATS_FOR_EACH_ROI = False    # significantly slows down the traces calculation when massive amount of rois
 LETTER_FIGSIZE = (8.5, 11)    # printable letter format, portrait; use (11, 8.5) for landscape
+RATIO_BAR_UNIT = 0.8    # constant scale of the ratio bars: ratio of 1 takes 80% of the vertical shift
 DEBUG = True
 
 
@@ -875,15 +876,8 @@ class TracesCalc(Helpers, Debug):
                 ampl_st1_to_st2_ratio_rois_by_epoch = 1 / np.array(
                     ampl_st2_to_st1_ratio_rois_by_epoch, dtype=float
                 )
-            finite_ratios = ampl_st1_to_st2_ratio_rois_by_epoch[
-                np.isfinite(ampl_st1_to_st2_ratio_rois_by_epoch)
-            ]
-            ampl_st1_to_st2_ratio_max = (
-                np.max(finite_ratios) if finite_ratios.size else 1
-            )
         else:
             ampl_st1_to_st2_ratio_rois_by_epoch = None
-            ampl_st1_to_st2_ratio_max = None
 
             # plot_stacked_traces all togather
         for i in self.group_names:
@@ -917,7 +911,6 @@ class TracesCalc(Helpers, Debug):
             vertical_shift=vertical_shift,
             delay=self.s2_delay,
             ratio_by_rois=ampl_st1_to_st2_ratio_rois_by_epoch,
-            ratio_max=ampl_st1_to_st2_ratio_max,
             figsize=LETTER_FIGSIZE,
             pdf=stacked_pdfs[0],
         )
@@ -934,7 +927,6 @@ class TracesCalc(Helpers, Debug):
             vertical_shift=vertical_shift,
             delay=self.s2_delay,
             ratio_by_rois=ampl_st1_to_st2_ratio_rois_by_epoch,
-            ratio_max=ampl_st1_to_st2_ratio_max,
             figsize=LETTER_FIGSIZE,
             only_responsive=True,
             pdf=stacked_pdfs[0],
@@ -952,7 +944,6 @@ class TracesCalc(Helpers, Debug):
             vertical_shift=vertical_shift,
             delay=self.s2_delay,
             ratio_by_rois=ampl_st1_to_st2_ratio_rois_by_epoch,
-            ratio_max=ampl_st1_to_st2_ratio_max,
             figsize=LETTER_FIGSIZE,
             pdf=stacked_pdfs[1],
         )
@@ -969,7 +960,6 @@ class TracesCalc(Helpers, Debug):
             vertical_shift=vertical_shift,
             delay=self.s2_delay,
             ratio_by_rois=ampl_st1_to_st2_ratio_rois_by_epoch,
-            ratio_max=ampl_st1_to_st2_ratio_max,
             figsize=LETTER_FIGSIZE,
             only_responsive=True,
             pdf=stacked_pdfs[1],
@@ -1003,8 +993,7 @@ class TracesCalc(Helpers, Debug):
                     if ampl_st1_to_st2_ratio_rois_by_epoch is None
                     else ampl_st1_to_st2_ratio_rois_by_epoch[pos : pos + chunk_size + 1]
                 ),
-                ratio_max=ampl_st1_to_st2_ratio_max,
-                figsize=LETTER_FIGSIZE,
+                    figsize=LETTER_FIGSIZE,
                 pdf=stacked_pdfs[0],
             )
         for pos in range(0, len(self.csv_matrix[0]) - 1, chunk_size):
@@ -1033,8 +1022,7 @@ class TracesCalc(Helpers, Debug):
                     if ampl_st1_to_st2_ratio_rois_by_epoch is None
                     else ampl_st1_to_st2_ratio_rois_by_epoch[pos : pos + chunk_size + 1]
                 ),
-                ratio_max=ampl_st1_to_st2_ratio_max,
-                figsize=LETTER_FIGSIZE,
+                    figsize=LETTER_FIGSIZE,
                 pdf=stacked_pdfs[1],
             )
 
@@ -1164,7 +1152,7 @@ class TracesCalc(Helpers, Debug):
         vertical_shift=1,
         delay=0,
         ratio_by_rois=None,
-        ratio_max=None,
+        ratio_max=None,    # optional ceiling for the bars, in ratio units
         figsize=(10, 10),
         only_responsive=False,
         pdf=None,
@@ -1219,17 +1207,6 @@ class TracesCalc(Helpers, Debug):
                 if i < len(ratio_by_rois)
             ]
 
-            if not ratio_max:
-                finite = (
-                    np.concatenate([values for _, _, values in ratios])
-                    if ratios
-                    else np.array([])
-                )
-                finite = finite[np.isfinite(finite)]
-                ratio_max = np.max(finite) if finite.size else 0
-            if not ratio_max or ratio_max <= 0:
-                ratio_max = 1
-
             positions, widths, heights, bottoms, colors = [], [], [], [], []
             scale_levels = []
             for pos, i, values in ratios:
@@ -1241,13 +1218,17 @@ class TracesCalc(Helpers, Debug):
                         continue
                     positions.append(bars_start + (j + 0.5) * bar_step)
                     widths.append(bar_step * 0.8)
-                    heights.append(min(value / ratio_max, 1) * vertical_shift * 0.8)
+                    # constant bars scale, independent of the data
+                    heights.append(
+                        (min(value, ratio_max) if ratio_max else value)
+                        * vertical_shift
+                        * RATIO_BAR_UNIT
+                    )
                     bottoms.append(pos * vertical_shift)
                     colors.append("g" if bin_summary_by_rois[i] else "k")
                 # level of the ratio = 1 on the bars scale
                 scale_levels.append(
-                    (pos * vertical_shift)
-                    + min(1 / ratio_max, 1) * vertical_shift * 0.8
+                    (pos * vertical_shift) + vertical_shift * RATIO_BAR_UNIT
                 )
 
             ax.bar(
@@ -1259,7 +1240,7 @@ class TracesCalc(Helpers, Debug):
                 linewidth=0,
             )
 
-            # gray dotted line marking the ratio = 1 level of the bars
+            # dotted line marking the ratio = 1 level of the bars
             ax.hlines(
                 scale_levels,
                 bars_start,
