@@ -14,7 +14,7 @@ CALCULATIONS_SUBFOLDER_NAME = "_CALCULATIONS_auto_"
 BINARIZATION_RESP_THRESHOLD = 0.29
 PLOT_STATS_FOR_EACH_ROI = False    # significantly slows down the traces calculation when massive amount of rois
 LETTER_FIGSIZE = (8.5, 11)    # printable letter format, portrait; use (11, 8.5) for landscape
-RATIO_BAR_UNIT = 0.8    # constant scale of the ratio bars: ratio of 1 takes 80% of the vertical shift
+RATIO_BAR_UNIT = 0.3    # constant scale of the ratio bars: ratio of 1 takes 80% of the vertical shift
 DEBUG = True
 
 
@@ -879,6 +879,15 @@ class TracesCalc(Helpers, Debug):
         else:
             ampl_st1_to_st2_ratio_rois_by_epoch = None
 
+        # stim timings within an epoch, shaded behind the traces
+        stim_timings = []
+        if s1s2:
+            stim_timings.append((self.s1s2_delay, "magenta"))
+        elif s1:
+            stim_timings.append((self.s1_delay, "magenta"))
+        if s2:
+            stim_timings.append((self.s2_delay, "green"))
+
             # plot_stacked_traces all togather
         for i in self.group_names:
             os.makedirs(
@@ -912,6 +921,7 @@ class TracesCalc(Helpers, Debug):
             delay=self.s2_delay,
             ratio_by_rois=ampl_st1_to_st2_ratio_rois_by_epoch,
             figsize=LETTER_FIGSIZE,
+            stim_timings=stim_timings,
             pdf=stacked_pdfs[0],
         )
         # printable letter format: only the responsive (green) traces
@@ -929,6 +939,7 @@ class TracesCalc(Helpers, Debug):
             ratio_by_rois=ampl_st1_to_st2_ratio_rois_by_epoch,
             figsize=LETTER_FIGSIZE,
             only_responsive=True,
+            stim_timings=stim_timings,
             pdf=stacked_pdfs[0],
         )
         # printable letter format: all the traces stacked
@@ -945,6 +956,7 @@ class TracesCalc(Helpers, Debug):
             delay=self.s2_delay,
             ratio_by_rois=ampl_st1_to_st2_ratio_rois_by_epoch,
             figsize=LETTER_FIGSIZE,
+            stim_timings=stim_timings,
             pdf=stacked_pdfs[1],
         )
         # printable letter format: only the responsive (green) traces
@@ -962,6 +974,7 @@ class TracesCalc(Helpers, Debug):
             ratio_by_rois=ampl_st1_to_st2_ratio_rois_by_epoch,
             figsize=LETTER_FIGSIZE,
             only_responsive=True,
+            stim_timings=stim_timings,
             pdf=stacked_pdfs[1],
         )
 
@@ -994,6 +1007,7 @@ class TracesCalc(Helpers, Debug):
                     else ampl_st1_to_st2_ratio_rois_by_epoch[pos : pos + chunk_size + 1]
                 ),
                     figsize=LETTER_FIGSIZE,
+                stim_timings=stim_timings,
                 pdf=stacked_pdfs[0],
             )
         for pos in range(0, len(self.csv_matrix[0]) - 1, chunk_size):
@@ -1023,6 +1037,7 @@ class TracesCalc(Helpers, Debug):
                     else ampl_st1_to_st2_ratio_rois_by_epoch[pos : pos + chunk_size + 1]
                 ),
                     figsize=LETTER_FIGSIZE,
+                stim_timings=stim_timings,
                 pdf=stacked_pdfs[1],
             )
 
@@ -1155,6 +1170,7 @@ class TracesCalc(Helpers, Debug):
         ratio_max=None,    # optional ceiling for the bars, in ratio units
         figsize=(10, 10),
         only_responsive=False,
+        stim_timings=None,    # [(delay within an epoch, color), ...] to shade
         pdf=None,
     ):
         fig = plt.figure(figsize=figsize, dpi=300)
@@ -1166,11 +1182,16 @@ class TracesCalc(Helpers, Debug):
             if not only_responsive or bin_summary_by_rois[i]
         ]
 
+        traces_low, traces_high = None, None
         for pos, i in enumerate(rois):
             y = array[i + 1]
             color = "g-" if bin_summary_by_rois[i] else "k-"
             vertical_shifted_y = [val + pos * vertical_shift for val in y]
             plt.plot(x, vertical_shifted_y, color, linewidth=0.7, alpha=1)
+
+            # vertical extent of the traces, to fit the stim boxes in
+            traces_low = min(vertical_shifted_y + ([] if traces_low is None else [traces_low]))
+            traces_high = max(vertical_shifted_y + ([] if traces_high is None else [traces_high]))
 
             plt.plot(
                 [
@@ -1194,6 +1215,26 @@ class TracesCalc(Helpers, Debug):
         # Remove y-axis ticks
         ax.set_yticks([])
 
+        # light shaded box under the traces for each stim event of each epoch
+        if stim_timings and traces_low is not None:
+            step = self.trigger_config.step_duration
+            for timing, box_color in stim_timings:
+                for j in range(self.trigger_config.n_epochs):
+                    ax.add_patch(
+                        plt.Rectangle(
+                            (
+                                (j * step * self.n_steps_per_epoch) + timing - step * 0.25,
+                                traces_low,
+                            ),
+                            step * 0.75,
+                            traces_high - traces_low,
+                            color=box_color,
+                            alpha=0.1,
+                            linewidth=0,
+                            zorder=0,
+                        )
+                    )
+
         # small bar plot to the right of each trace:
         # one bar per epoch with the st1(s1s2) to st2(s2) ampl ratio
         if ratio_by_rois is not None and len(ratio_by_rois):
@@ -1209,6 +1250,7 @@ class TracesCalc(Helpers, Debug):
 
             positions, widths, heights, bottoms, colors = [], [], [], [], []
             scale_levels = []
+            zero_levels = []
             for pos, i, values in ratios:
                 if not values.size:
                     continue
@@ -1225,10 +1267,13 @@ class TracesCalc(Helpers, Debug):
                         * RATIO_BAR_UNIT
                     )
                     bottoms.append(pos * vertical_shift)
-                    colors.append("g" if bin_summary_by_rois[i] else "k")
+                    colors.append("tab:purple" if bin_summary_by_rois[i] else "k")
                 # level of the ratio = 1 on the bars scale
                 scale_levels.append(
                     (pos * vertical_shift) + vertical_shift * RATIO_BAR_UNIT
+                )
+                zero_levels.append(
+                    pos * vertical_shift
                 )
 
             ax.bar(
@@ -1245,11 +1290,23 @@ class TracesCalc(Helpers, Debug):
                 scale_levels,
                 bars_start,
                 bars_start + bars_block_width,
-                colors="magenta",
+                colors="green",
                 linestyles=":",
+                linewidth=0.7,
+                zorder=4,
+            )
+
+            # solid white line on y=0 to separate bars from vertical overlay
+            ax.hlines(
+                zero_levels,
+                bars_start,
+                bars_start + bars_block_width,
+                colors="white",
+                linestyles="-",
                 linewidth=0.7,
                 zorder=3,
             )
+
 
         ax.errorbar(
             -15,
