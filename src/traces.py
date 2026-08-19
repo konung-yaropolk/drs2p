@@ -1319,6 +1319,8 @@ class TracesCalc(Helpers, Debug):
             zorder=3,
         )
 
+        ax.set_rasterization_zorder(6) 
+
         plt.text(
             -15, -1.0, "1 ΔF/F₀", horizontalalignment="center", verticalalignment="top"
         )
