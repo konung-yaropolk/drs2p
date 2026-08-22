@@ -562,6 +562,13 @@ class TracesCalc(Helpers, Debug):
             > BINARIZATION_RESP_THRESHOLD
         ).tolist()
 
+
+        s1s2_OR_s2_bin_list_each_by_epoch = np.logical_or(s1s2_bin_list_each_by_epoch, s2_bin_list_each_by_epoch).tolist()
+        s1_OR_s2_bin_list_each_by_epoch = np.logical_or(s1_bin_list_each_by_epoch, s2_bin_list_each_by_epoch).tolist()
+
+        st1_OR_st2_bin_summary_by_rois = np.logical_or(st1_bin_summary_by_rois, st2_bin_summary_by_rois).tolist()
+
+
         # save binarization for the next calculations
         load_unitid = (
             csv_path
@@ -575,6 +582,7 @@ class TracesCalc(Helpers, Debug):
             st1_bin_summary_by_rois,
             st1_bin_summary_by_rois,
             st2_bin_summary_by_rois,
+            st1_OR_st2_bin_summary_by_rois
         ]
 
         if self.trigger_config.SD_filter_of_trig and load_unitid in self.filters:
@@ -627,14 +635,22 @@ class TracesCalc(Helpers, Debug):
         s1_name = self.trigger_config.stim_1_name
         s2_name = self.trigger_config.stim_2_name
 
+
+        # Write metrics for data binarized by A+C OR C responses in pair
         if s1s2:
-            write_metrics(f"{s1_name}&{s2_name}", s1s2_snr_list_each_by_epoch, s1s2_ampl_list_each_by_epoch, s1s2_auc_list_each_by_epoch, s1s2_bin_list_each_by_epoch)
+            write_metrics(f"{s1_name}&{s2_name}", s1s2_snr_list_each_by_epoch, s1s2_ampl_list_each_by_epoch, s1s2_auc_list_each_by_epoch,  np.logical_or(s2_bin_list_each_by_epoch, s1_bin_list_each_by_epoch))
         if s1:
-            write_metrics(s1_name, s1_snr_list_each_by_epoch, s1_ampl_list_each_by_epoch, s1_auc_list_each_by_epoch, s1_bin_list_each_by_epoch)
+            write_metrics(s1_name, s1_snr_list_each_by_epoch, s1_ampl_list_each_by_epoch, s1_auc_list_each_by_epoch,  np.logical_or(s2_bin_list_each_by_epoch, s1_bin_list_each_by_epoch))
         if s2:
-            write_metrics(s2_name, s2_snr_list_each_by_epoch, s2_ampl_list_each_by_epoch, s2_auc_list_each_by_epoch, s2_bin_list_each_by_epoch)
+            write_metrics(s2_name, s2_snr_list_each_by_epoch, s2_ampl_list_each_by_epoch, s2_auc_list_each_by_epoch,  np.logical_or(s2_bin_list_each_by_epoch, s1_bin_list_each_by_epoch))
 
-
+        # # Write metrics for data binarized by only one (A+C or C) responses in pair
+        # if s1s2:
+        #     write_metrics(f"{s1_name}&{s2_name}", s1s2_snr_list_each_by_epoch, s1s2_ampl_list_each_by_epoch, s1s2_auc_list_each_by_epoch, s1s2_bin_list_each_by_epoch)
+        # if s1:
+        #     write_metrics(s1_name, s1_snr_list_each_by_epoch, s1_ampl_list_each_by_epoch, s1_auc_list_each_by_epoch, s1_bin_list_each_by_epoch)
+        # if s2:
+        #     write_metrics(s2_name, s2_snr_list_each_by_epoch, s2_ampl_list_each_by_epoch, s2_auc_list_each_by_epoch, s2_bin_list_each_by_epoch)
 
 
 
@@ -670,17 +686,17 @@ class TracesCalc(Helpers, Debug):
                         1 / ampl_st2_to_st1_ratio_mean_of_epochs_by_rois,
                         "",
                         "",
+                        self.filter_list(st1_ampl_mean_of_epochs_by_rois, filter[3]),
+                        self.filter_list(st2_ampl_mean_of_epochs_by_rois, filter[3]),
+                        self.filter_list(
+                            1 / ampl_st2_to_st1_ratio_mean_of_epochs_by_rois, filter[3]
+                        ),
+                        "",
+                        "",
                         self.filter_list(st1_ampl_mean_of_epochs_by_rois, filter[2]),
                         self.filter_list(st2_ampl_mean_of_epochs_by_rois, filter[2]),
                         self.filter_list(
                             1 / ampl_st2_to_st1_ratio_mean_of_epochs_by_rois, filter[2]
-                        ),
-                        "",
-                        "",
-                        self.filter_list(st1_ampl_mean_of_epochs_by_rois, filter[1]),
-                        self.filter_list(st2_ampl_mean_of_epochs_by_rois, filter[1]),
-                        self.filter_list(
-                            1 / ampl_st2_to_st1_ratio_mean_of_epochs_by_rois, filter[1]
                         ),
                     ]
                 ),
@@ -720,17 +736,17 @@ class TracesCalc(Helpers, Debug):
                         1 / auc_st2_to_st1_ratio_mean_of_epochs_by_rois,
                         "",
                         "",
+                        self.filter_list(st1_auc_mean_of_epochs_by_rois, filter[3]),
+                        self.filter_list(st2_auc_mean_of_epochs_by_rois, filter[3]),
+                        self.filter_list(
+                            1 / auc_st2_to_st1_ratio_mean_of_epochs_by_rois, filter[3]
+                        ),
+                        "",
+                        "",
                         self.filter_list(st1_auc_mean_of_epochs_by_rois, filter[2]),
                         self.filter_list(st2_auc_mean_of_epochs_by_rois, filter[2]),
                         self.filter_list(
                             1 / auc_st2_to_st1_ratio_mean_of_epochs_by_rois, filter[2]
-                        ),
-                        "",
-                        "",
-                        self.filter_list(st1_auc_mean_of_epochs_by_rois, filter[1]),
-                        self.filter_list(st2_auc_mean_of_epochs_by_rois, filter[1]),
-                        self.filter_list(
-                            1 / auc_st2_to_st1_ratio_mean_of_epochs_by_rois, filter[1]
                         ),
                     ]
                 ),
@@ -744,8 +760,8 @@ class TracesCalc(Helpers, Debug):
 
         # plot_s1s2_s2_roi_stats AUC for all rois
         self.plot_s1s2_s2_roi_stats(
-            self.filter_list(st1_auc_mean_of_epochs_by_rois, filter[2], replace=False),
-            self.filter_list(st2_auc_mean_of_epochs_by_rois, filter[2], replace=False),
+            self.filter_list(st1_auc_mean_of_epochs_by_rois, filter[3], replace=False),
+            self.filter_list(st2_auc_mean_of_epochs_by_rois, filter[3], replace=False),
             "{0}{1}/_by_rois_{2}_{3}{4}_{4}_auc_auto_.png".format(
                 csv_path,
                 output_dir,
@@ -763,8 +779,8 @@ class TracesCalc(Helpers, Debug):
 
         # plot_s1s2_s2_roi_stats Ampl for all rois
         self.plot_s1s2_s2_roi_stats(
-            self.filter_list(st1_ampl_mean_of_epochs_by_rois, filter[2], replace=False),
-            self.filter_list(st2_ampl_mean_of_epochs_by_rois, filter[2], replace=False),
+            self.filter_list(st1_ampl_mean_of_epochs_by_rois, filter[3], replace=False),
+            self.filter_list(st2_ampl_mean_of_epochs_by_rois, filter[3], replace=False),
             "{0}{1}/_by_rois_{2}_{3}{4}_{4}_ampl_auto_.png".format(
                 csv_path,
                 output_dir,
@@ -784,8 +800,8 @@ class TracesCalc(Helpers, Debug):
         if s1s2 and s2 and PLOT_STATS_FOR_EACH_ROI:
             for i in range(len(s1s2_ampl_list_each_by_epoch)):
                 self.plot_s1s2_s2_roi_stats(
-                    s1s2_ampl_list_each_by_epoch[i],
-                    s2_ampl_list_each_by_epoch[i],
+                    self.filter_list(s1s2_ampl_list_each_by_epoch[i], filter[3], replace=False),
+                    self.filter_list(s2_ampl_list_each_by_epoch[i], filter[3], replace=False),
                     "{0}{1}/_roi{2}_{3}{4}_{4}_{5}_ampl_auto_.png".format(
                         csv_path,
                         output_dir,
@@ -912,8 +928,8 @@ class TracesCalc(Helpers, Debug):
             np.array(matrix_T[0])
             - (self.trigger_config.start_from_epoch * self.trigger_config.step_duration * self.n_steps_per_epoch),
             matrix_T[:],
-            s1s2_bin_list_each_by_epoch,
-            st1_bin_summary_by_rois,
+            s1s2_OR_s2_bin_list_each_by_epoch,
+            st1_OR_st2_bin_summary_by_rois,
             "{0}{1}/_by_rois_traces_bin_{2}_{3}_auto_/_full_traces_stacked_by_rois_auto_.png".format(
                 csv_path, output_dir, self.group_names[0], self.output_suffix
             ),
@@ -929,13 +945,13 @@ class TracesCalc(Helpers, Debug):
             np.array(matrix_T[0])
             - (self.trigger_config.start_from_epoch * self.trigger_config.step_duration * self.n_steps_per_epoch),
             matrix_T[:],
-            s1s2_bin_list_each_by_epoch,
-            st1_bin_summary_by_rois,
+            s1s2_OR_s2_bin_list_each_by_epoch,
+            st1_OR_st2_bin_summary_by_rois,
             "{0}{1}/_by_rois_traces_bin_{2}_{3}_auto_/_full_traces_stacked_by_rois_responsive_auto_.png".format(
                 csv_path, output_dir, self.group_names[0], self.output_suffix
             ),
             vertical_shift=vertical_shift,
-            delay=self.s2_delay,
+            delay=self.s2_delay/2,
             ratio_by_rois=ampl_st1_to_st2_ratio_rois_by_epoch,
             figsize=LETTER_FIGSIZE,
             only_responsive=True,
@@ -947,13 +963,13 @@ class TracesCalc(Helpers, Debug):
             np.array(matrix_T[0])
             - (self.trigger_config.start_from_epoch * self.trigger_config.step_duration * self.n_steps_per_epoch),
             matrix_T[:],
-            s2_bin_list_each_by_epoch,
-            st2_bin_summary_by_rois,
+            s1_OR_s2_bin_list_each_by_epoch,
+            st1_OR_st2_bin_summary_by_rois,
             "{0}{1}/_by_rois_traces_bin_{2}_{3}_auto_/_full_traces_stacked_by_rois_auto_.png".format(
                 csv_path, output_dir, self.group_names[1], self.output_suffix
             ),
             vertical_shift=vertical_shift,
-            delay=self.s2_delay,
+            delay=self.s2_delay/2,
             ratio_by_rois=ampl_st1_to_st2_ratio_rois_by_epoch,
             figsize=LETTER_FIGSIZE,
             stim_timings=stim_timings,
@@ -964,13 +980,13 @@ class TracesCalc(Helpers, Debug):
             np.array(matrix_T[0])
             - (self.trigger_config.start_from_epoch * self.trigger_config.step_duration * self.n_steps_per_epoch),
             matrix_T[:],
-            s2_bin_list_each_by_epoch,
-            st2_bin_summary_by_rois,
+            s1_OR_s2_bin_list_each_by_epoch,
+            st1_OR_st2_bin_summary_by_rois,
             "{0}{1}/_by_rois_traces_bin_{2}_{3}_auto_/_full_traces_stacked_by_rois_responsive_auto_.png".format(
                 csv_path, output_dir, self.group_names[1], self.output_suffix
             ),
             vertical_shift=vertical_shift,
-            delay=self.s2_delay,
+            delay=self.s2_delay/2,
             ratio_by_rois=ampl_st1_to_st2_ratio_rois_by_epoch,
             figsize=LETTER_FIGSIZE,
             only_responsive=True,
@@ -980,6 +996,36 @@ class TracesCalc(Helpers, Debug):
 
         # plot_stacked_traces by groups, printable letter format
         chunk_size = 20
+        # for pos in range(0, len(self.csv_matrix[0]) - 1, chunk_size):
+        #     self.plot_stacked_traces(
+        #         np.array(matrix_T[0])
+        #         - (
+        #             self.trigger_config.start_from_epoch
+        #             * self.trigger_config.step_duration
+        #             * self.n_steps_per_epoch
+        #         ),
+        #         matrix_T[pos : pos + chunk_size + 1],
+        #         s1s2_OR_s2_bin_list_each_by_epoch[pos : pos + chunk_size + 1],
+        #         s1_OR_s2_bin_list_each_by_epoch[pos : pos + chunk_size + 1],
+        #         "{0}{1}/_by_rois_traces_bin_{2}_{5}_auto_/_full_traces_stacked_by_rois_{3}-{4}_{5}_auto_.png".format(
+        #             csv_path,
+        #             output_dir,
+        #             self.group_names[0],
+        #             pos + 1,
+        #             pos + chunk_size,
+        #             self.output_suffix,
+        #         ),
+        #         vertical_shift=vertical_shift,
+        #         delay=self.s2_delay/2,
+        #         ratio_by_rois=(
+        #             None
+        #             if ampl_st1_to_st2_ratio_rois_by_epoch is None
+        #             else ampl_st1_to_st2_ratio_rois_by_epoch[pos : pos + chunk_size + 1]
+        #         ),
+        #             figsize=LETTER_FIGSIZE,
+        #         stim_timings=stim_timings,
+        #         pdf=stacked_pdfs[0],
+        #     )
         for pos in range(0, len(self.csv_matrix[0]) - 1, chunk_size):
             self.plot_stacked_traces(
                 np.array(matrix_T[0])
@@ -989,38 +1035,8 @@ class TracesCalc(Helpers, Debug):
                     * self.n_steps_per_epoch
                 ),
                 matrix_T[pos : pos + chunk_size + 1],
-                s1s2_bin_list_each_by_epoch[pos : pos + chunk_size + 1],
-                st1_bin_summary_by_rois[pos : pos + chunk_size + 1],
-                "{0}{1}/_by_rois_traces_bin_{2}_{5}_auto_/_full_traces_stacked_by_rois_{3}-{4}_{5}_auto_.png".format(
-                    csv_path,
-                    output_dir,
-                    self.group_names[0],
-                    pos + 1,
-                    pos + chunk_size,
-                    self.output_suffix,
-                ),
-                vertical_shift=vertical_shift,
-                delay=self.s2_delay,
-                ratio_by_rois=(
-                    None
-                    if ampl_st1_to_st2_ratio_rois_by_epoch is None
-                    else ampl_st1_to_st2_ratio_rois_by_epoch[pos : pos + chunk_size + 1]
-                ),
-                    figsize=LETTER_FIGSIZE,
-                stim_timings=stim_timings,
-                pdf=stacked_pdfs[0],
-            )
-        for pos in range(0, len(self.csv_matrix[0]) - 1, chunk_size):
-            self.plot_stacked_traces(
-                np.array(matrix_T[0])
-                - (
-                    self.trigger_config.start_from_epoch
-                    * self.trigger_config.step_duration
-                    * self.n_steps_per_epoch
-                ),
-                matrix_T[pos : pos + chunk_size + 1],
-                s2_bin_list_each_by_epoch[pos : pos + chunk_size + 1],
-                st2_bin_summary_by_rois[pos : pos + chunk_size + 1],
+                s1_OR_s2_bin_list_each_by_epoch[pos : pos + chunk_size + 1],
+                st1_OR_st2_bin_summary_by_rois[pos : pos + chunk_size + 1],
                 "{0}{1}/_by_rois_traces_bin_{2}_{5}_auto_/_full_traces_stacked_by_rois_{3}-{4}_{5}_auto_.png".format(
                     csv_path,
                     output_dir,
@@ -1030,7 +1046,7 @@ class TracesCalc(Helpers, Debug):
                     self.output_suffix,
                 ),
                 vertical_shift=vertical_shift,
-                delay=self.s2_delay,
+                delay=self.s2_delay/2,
                 ratio_by_rois=(
                     None
                     if ampl_st1_to_st2_ratio_rois_by_epoch is None
@@ -1055,22 +1071,22 @@ class TracesCalc(Helpers, Debug):
         #     )
 
         # plot_heatmaps
-        self.plot_heatmap(
-            matrix_T[:],
-            "{0}{1}/_by_rois_heatmap_bin_{2}_{3}{4}_in_{5}_auto.png".format(
-                csv_path, output_dir, self.group_names[0], self.file_nosuffix, self.output_suffix, base_dir
-            ),
-            s1s2_bin_list_each_by_epoch,
-            st1_bin_summary_by_rois,
-            delay=(self.trigger_config.step_duration * s1s2_order) + (self.trigger_config.start_from_epoch * self.trigger_config.step_duration * self.n_steps_per_epoch),
-        )
+        # self.plot_heatmap(
+        #     matrix_T[:],
+        #     "{0}{1}/_by_rois_heatmap_bin_{2}_{3}{4}_in_{5}_auto.png".format(
+        #         csv_path, output_dir, self.group_names[0], self.file_nosuffix, self.output_suffix, base_dir
+        #     ),
+        #     s1s2_OR_s2_bin_list_each_by_epoch,
+        #     st1_OR_st2_bin_summary_by_rois,
+        #     delay=(self.trigger_config.step_duration * s1s2_order) + (self.trigger_config.start_from_epoch * self.trigger_config.step_duration * self.n_steps_per_epoch),
+        # )
         self.plot_heatmap(
             matrix_T[:],
             "{0}{1}/_by_rois_heatmap_bin_{2}_{3}{4}_in_{5}_auto.png".format(
                 csv_path, output_dir, self.group_names[1], self.file_nosuffix, self.output_suffix, base_dir
             ),
-            s2_bin_list_each_by_epoch,
-            st2_bin_summary_by_rois,
+            s1_OR_s2_bin_list_each_by_epoch,
+            st1_OR_st2_bin_summary_by_rois,
             delay=(self.trigger_config.step_duration * s2_order) + (self.trigger_config.start_from_epoch * self.trigger_config.step_duration * self.n_steps_per_epoch),
         )
         self.plot_heatmap(
