@@ -636,21 +636,13 @@ class TracesCalc(Helpers, Debug):
         s2_name = self.trigger_config.stim_2_name
 
 
-        # Write metrics for data binarized by A+C OR C responses in pair
+        # Write metrics for data binarized by only one (A+C or C) responses in pair
         if s1s2:
-            write_metrics(f"{s1_name}&{s2_name}", s1s2_snr_list_each_by_epoch, s1s2_ampl_list_each_by_epoch, s1s2_auc_list_each_by_epoch,  np.logical_or(s2_bin_list_each_by_epoch, s1_bin_list_each_by_epoch))
+            write_metrics(f"{s1_name}&{s2_name}", s1s2_snr_list_each_by_epoch, s1s2_ampl_list_each_by_epoch, s1s2_auc_list_each_by_epoch, s1s2_bin_list_each_by_epoch)
         if s1:
-            write_metrics(s1_name, s1_snr_list_each_by_epoch, s1_ampl_list_each_by_epoch, s1_auc_list_each_by_epoch,  np.logical_or(s2_bin_list_each_by_epoch, s1_bin_list_each_by_epoch))
+            write_metrics(s1_name, s1_snr_list_each_by_epoch, s1_ampl_list_each_by_epoch, s1_auc_list_each_by_epoch, s1_bin_list_each_by_epoch)
         if s2:
-            write_metrics(s2_name, s2_snr_list_each_by_epoch, s2_ampl_list_each_by_epoch, s2_auc_list_each_by_epoch,  np.logical_or(s2_bin_list_each_by_epoch, s1_bin_list_each_by_epoch))
-
-        # # Write metrics for data binarized by only one (A+C or C) responses in pair
-        # if s1s2:
-        #     write_metrics(f"{s1_name}&{s2_name}", s1s2_snr_list_each_by_epoch, s1s2_ampl_list_each_by_epoch, s1s2_auc_list_each_by_epoch, s1s2_bin_list_each_by_epoch)
-        # if s1:
-        #     write_metrics(s1_name, s1_snr_list_each_by_epoch, s1_ampl_list_each_by_epoch, s1_auc_list_each_by_epoch, s1_bin_list_each_by_epoch)
-        # if s2:
-        #     write_metrics(s2_name, s2_snr_list_each_by_epoch, s2_ampl_list_each_by_epoch, s2_auc_list_each_by_epoch, s2_bin_list_each_by_epoch)
+            write_metrics(s2_name, s2_snr_list_each_by_epoch, s2_ampl_list_each_by_epoch, s2_auc_list_each_by_epoch, s2_bin_list_each_by_epoch)
 
 
 

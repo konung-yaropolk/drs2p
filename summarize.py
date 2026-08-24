@@ -65,7 +65,7 @@ LOCAL_PREFIX = "summary_"
 SNR_THRESHOLD = 5.0
 
 # Keep a ROI only if at least this fraction of its cells pass the SNR threshold.
-ROI_THRESHOLD = 0.37
+ROI_THRESHOLD = 0.29
 
 # Metric -> glob pattern inside each outputs_ folder. Order defines column order.
 # The wildcard covers varying suffixes like __auto_ vs __Control_auto_ etc.
