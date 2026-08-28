@@ -14,3 +14,4 @@ natsort
 suite2p
 torch
 pynwb
+xxhash            # optional: fastest checksum for src/ssd_guard.py (falls back to zlib.crc32)

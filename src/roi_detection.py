@@ -5,6 +5,7 @@ import tifffile
 import roifile
 import numpy as np
 import csv
+import ssd_guard
 from skimage.draw import ellipse
 from helpers import Helpers
 
@@ -19,6 +20,9 @@ class RoiDetector:
         macro = self._generate_macro()
         macro_path = Helpers().normalize_path(os.path.join(self.dir, '_temp_macro.ijm'))
 
+        # not routed through ssd_guard: this macro is deleted again in the
+        # finally block below, so it never pre-exists and there is nothing to
+        # compare it against
         with open(macro_path, 'w') as f:
             f.write(macro)
         
@@ -314,7 +318,7 @@ class RoiMeasurer:
                 # progress update every 100 frames
                 if frame_idx % 100 == 0:
                     print(f"  frame {frame_idx}/{n_frames}")
-        with open(self.output_csv, 'w', newline='') as f:
+        with ssd_guard.guarded_open(self.output_csv, 'w', newline='') as f:
             writer = csv.writer(f)
             writer.writerows(results)
 
