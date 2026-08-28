@@ -62,6 +62,11 @@ VERBOSE = False
 # timestamps require in every timezone.
 SOURCE_DATE_EPOCH = "946684800"
 
+# matplotlib salts the element ids it writes into SVG files with a fresh
+# uuid4() per figure unless svg.hashsalt is set, so two identical figures never
+# produce identical SVG bytes.  Only internal ids change, never the rendering.
+SVG_HASHSALT = "drs2p"
+
 
 def _enabled():
     if _ENV_OVERRIDE is not None:
@@ -219,7 +224,7 @@ def write_if_changed(path, data):
         _stats["skipped"] += 1
         _stats["bytes_skipped"] += len(data)
         if VERBOSE:
-            print(f"    [ssd] unchanged, not rewritten: {path}")
+            print(f"    [ssd] skipped: {path}")
         return False
 
     with open(path, "wb") as f:
@@ -430,7 +435,14 @@ def _rebind(old, new):
 
 
 def _patch_matplotlib_savefig():
+    import matplotlib as mpl
     from matplotlib.figure import Figure
+
+    try:
+        if mpl.rcParams["svg.hashsalt"] is None:
+            mpl.rcParams["svg.hashsalt"] = SVG_HASHSALT
+    except Exception:
+        pass  # only an optimisation; never let it cost us the savefig guard
 
     original = Figure.savefig
     if getattr(original, "_ssd_guarded", False):
