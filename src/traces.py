@@ -988,36 +988,36 @@ class TracesCalc(Helpers, Debug):
 
         # plot_stacked_traces by groups, printable letter format
         chunk_size = 20
-        # for pos in range(0, len(self.csv_matrix[0]) - 1, chunk_size):
-        #     self.plot_stacked_traces(
-        #         np.array(matrix_T[0])
-        #         - (
-        #             self.trigger_config.start_from_epoch
-        #             * self.trigger_config.step_duration
-        #             * self.n_steps_per_epoch
-        #         ),
-        #         matrix_T[pos : pos + chunk_size + 1],
-        #         s1s2_OR_s2_bin_list_each_by_epoch[pos : pos + chunk_size + 1],
-        #         s1_OR_s2_bin_list_each_by_epoch[pos : pos + chunk_size + 1],
-        #         "{0}{1}/_by_rois_traces_bin_{2}_{5}_auto_/_full_traces_stacked_by_rois_{3}-{4}_{5}_auto_.png".format(
-        #             csv_path,
-        #             output_dir,
-        #             self.group_names[0],
-        #             pos + 1,
-        #             pos + chunk_size,
-        #             self.output_suffix,
-        #         ),
-        #         vertical_shift=vertical_shift,
-        #         delay=self.s2_delay/2,
-        #         ratio_by_rois=(
-        #             None
-        #             if ampl_st1_to_st2_ratio_rois_by_epoch is None
-        #             else ampl_st1_to_st2_ratio_rois_by_epoch[pos : pos + chunk_size + 1]
-        #         ),
-        #             figsize=LETTER_FIGSIZE,
-        #         stim_timings=stim_timings,
-        #         pdf=stacked_pdfs[0],
-        #     )
+        for pos in range(0, len(self.csv_matrix[0]) - 1, chunk_size):
+            self.plot_stacked_traces(
+                np.array(matrix_T[0])
+                - (
+                    self.trigger_config.start_from_epoch
+                    * self.trigger_config.step_duration
+                    * self.n_steps_per_epoch
+                ),
+                matrix_T[pos : pos + chunk_size + 1],
+                s1s2_OR_s2_bin_list_each_by_epoch[pos : pos + chunk_size + 1],
+                st1_OR_st2_bin_summary_by_rois[pos : pos + chunk_size + 1],
+                "{0}{1}/_by_rois_traces_bin_{2}_{5}_auto_/_full_traces_stacked_by_rois_{3}-{4}_{5}_auto_.png".format(
+                    csv_path,
+                    output_dir,
+                    self.group_names[0],
+                    pos + 1,
+                    pos + chunk_size,
+                    self.output_suffix,
+                ),
+                vertical_shift=vertical_shift,
+                delay=self.s2_delay/2,
+                ratio_by_rois=(
+                    None
+                    if ampl_st1_to_st2_ratio_rois_by_epoch is None
+                    else ampl_st1_to_st2_ratio_rois_by_epoch[pos : pos + chunk_size + 1]
+                ),
+                figsize=LETTER_FIGSIZE,
+                stim_timings=stim_timings,
+                pdf=stacked_pdfs[0],
+            )
         for pos in range(0, len(self.csv_matrix[0]) - 1, chunk_size):
             self.plot_stacked_traces(
                 np.array(matrix_T[0])
@@ -1044,7 +1044,7 @@ class TracesCalc(Helpers, Debug):
                     if ampl_st1_to_st2_ratio_rois_by_epoch is None
                     else ampl_st1_to_st2_ratio_rois_by_epoch[pos : pos + chunk_size + 1]
                 ),
-                    figsize=LETTER_FIGSIZE,
+                figsize=LETTER_FIGSIZE,
                 stim_timings=stim_timings,
                 pdf=stacked_pdfs[1],
             )
