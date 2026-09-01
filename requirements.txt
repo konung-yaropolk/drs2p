@@ -3,7 +3,11 @@ scipy
 statsmodels
 matplotlib
 seaborn
-scikit-posthocs
+# statsmodels 0.15 dropped the multipletests re-export from
+# statsmodels.sandbox.stats.multicomp; scikit-posthocs imports it from the
+# canonical statsmodels.stats.multitest only since 0.16.1. Anything older
+# breaks `import AutoStatLib` (and so `import traces`) on a fresh install.
+scikit-posthocs>=0.16.1
 scikit-image
 pandas
 AutoStatLib>=0.4.4
