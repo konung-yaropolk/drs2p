@@ -660,31 +660,31 @@ class TracesCalc(Helpers, Debug):
                     "",
                     "",
                     "Filtered by {} SD of {}".format(
-                        self.trigger_config.sigmas_treshold, self.group_names[1]
+                        self.trigger_config.sigmas_treshold, self.group_names[1] + " OR " + self.group_names[0],
                     ),
                     "",
                     "",
                     "",
                     "",
                     "Filtered by {} SD of {}".format(
-                        self.trigger_config.sigmas_treshold, self.group_names[0]
+                        self.trigger_config.sigmas_treshold, self.group_names[1]
                     ),
                 ],
                 header + [""] * 2 + header + [""] * 2 + header,
-                *self.transpose(
-                    [
+
+                self.transpose([
                         st1_ampl_mean_of_epochs_by_rois,
                         st2_ampl_mean_of_epochs_by_rois,
                         1 / ampl_st2_to_st1_ratio_mean_of_epochs_by_rois,
-                        "",
-                        "",
+                        " ",
+                        " ",
                         self.filter_list(st1_ampl_mean_of_epochs_by_rois, filter[3]),
                         self.filter_list(st2_ampl_mean_of_epochs_by_rois, filter[3]),
                         self.filter_list(
                             1 / ampl_st2_to_st1_ratio_mean_of_epochs_by_rois, filter[3]
                         ),
-                        "",
-                        "",
+                        " ",
+                        " ",
                         self.filter_list(st1_ampl_mean_of_epochs_by_rois, filter[2]),
                         self.filter_list(st2_ampl_mean_of_epochs_by_rois, filter[2]),
                         self.filter_list(
@@ -710,31 +710,31 @@ class TracesCalc(Helpers, Debug):
                     "",
                     "",
                     "Filtered by {} SD of {}".format(
-                        self.trigger_config.sigmas_treshold, self.group_names[1]
+                        self.trigger_config.sigmas_treshold, self.group_names[1] + " OR " + self.group_names[0],
                     ),
                     "",
                     "",
                     "",
                     "",
                     "Filtered by {} SD of {}".format(
-                        self.trigger_config.sigmas_treshold, self.group_names[0]
+                        self.trigger_config.sigmas_treshold, self.group_names[1]
                     ),
                 ],
                 header + [""] * 2 + header + [""] * 2 + header,
-                *self.transpose(
-                    [
+
+                self.transpose([
                         st1_auc_mean_of_epochs_by_rois,
                         st2_auc_mean_of_epochs_by_rois,
                         1 / auc_st2_to_st1_ratio_mean_of_epochs_by_rois,
-                        "",
-                        "",
+                        " ",
+                        " ",
                         self.filter_list(st1_auc_mean_of_epochs_by_rois, filter[3]),
                         self.filter_list(st2_auc_mean_of_epochs_by_rois, filter[3]),
                         self.filter_list(
                             1 / auc_st2_to_st1_ratio_mean_of_epochs_by_rois, filter[3]
                         ),
-                        "",
-                        "",
+                        " ",
+                        " ",
                         self.filter_list(st1_auc_mean_of_epochs_by_rois, filter[2]),
                         self.filter_list(st2_auc_mean_of_epochs_by_rois, filter[2]),
                         self.filter_list(
@@ -742,6 +742,7 @@ class TracesCalc(Helpers, Debug):
                         ),
                     ]
                 ),
+    
             ],
             csv_path + output_dir,
             output_dir,
