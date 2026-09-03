@@ -672,7 +672,8 @@ class TracesCalc(Helpers, Debug):
                 ],
                 header + [""] * 2 + header + [""] * 2 + header,
 
-                self.transpose([
+                *self.transpose(
+                    [
                         st1_ampl_mean_of_epochs_by_rois,
                         st2_ampl_mean_of_epochs_by_rois,
                         1 / ampl_st2_to_st1_ratio_mean_of_epochs_by_rois,
