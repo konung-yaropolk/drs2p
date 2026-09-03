@@ -5,6 +5,7 @@ import numpy as np
 import tifffile
 import matplotlib.pyplot as plt
 import platform
+import ssd_guard
 from pathlib import Path, PurePosixPath, PureWindowsPath
 
 
@@ -157,7 +158,7 @@ class Helpers:
                 filename_suffix,
             )
 
-        with open(path, "w") as f:
+        with ssd_guard.guarded_open(path, "w") as f:
 
             writer = csv.writer(
                 f,

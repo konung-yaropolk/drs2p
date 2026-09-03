@@ -43,6 +43,10 @@ from pathlib import Path
 import matplotlib
 matplotlib.use("Agg")  # headless: render plots to files, never open a window
 
+sys.path.insert(0, str(Path(__file__).parent / "src"))
+import ssd_guard  # skip disk writes whose result did not change
+ssd_guard.install()
+
 import numpy as np
 import pandas as pd
 from openpyxl import Workbook
@@ -65,7 +69,7 @@ LOCAL_PREFIX = "summary_"
 SNR_THRESHOLD = 5.0
 
 # Keep a ROI only if at least this fraction of its cells pass the SNR threshold.
-ROI_THRESHOLD = 0.37
+ROI_THRESHOLD = 0.29
 
 # Metric -> glob pattern inside each outputs_ folder. Order defines column order.
 # The wildcard covers varying suffixes like __auto_ vs __Control_auto_ etc.
@@ -362,6 +366,7 @@ def main():
         print(f"No working folders with the expected structure found under {ROOT}")
     else:
         print(f"Done: processed {processed} working folder(s).")
+    ssd_guard.report()
 
 
 if __name__ == "__main__":
