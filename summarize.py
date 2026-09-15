@@ -134,8 +134,11 @@ def filtered_matrices_for_folder(out_dir: Path):
     bin_c  = snr_to_bin(snr_c_path)
     bin_ac = snr_to_bin(snr_ac_path)
 
+    # Combine the two binarized matrices: a cell is "signal" if either SNR is above threshold.
+    binarization = bin_c | bin_ac
+
     # Per-ROW (per-ROI) fraction of cells above SNR threshold; keep rows at/above ROI_THRESHOLD.
-    keep_mask = bin_c.mean(axis=1) >= ROI_THRESHOLD
+    keep_mask = binarization.mean(axis=1) >= ROI_THRESHOLD
 
     result = {}
     for metric, pattern in METRIC_FILES.items():

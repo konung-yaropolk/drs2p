@@ -121,6 +121,9 @@ class Helpers:
 
         Fast path: if already an ndarray, use .T (zero-copy view).
         Slow path: list-of-lists — convert to ndarray, transpose, return as list.
+        Ragged path: rows of unequal length (e.g. "" spacer columns between
+        data columns of a CSV table) — short rows are padded with None, which
+        csv.writer writes as an empty cell.
         The caller receives the same data type it passes in, so existing code
         that iterates with `for row in transpose(...)` keeps working.
         """
@@ -129,8 +132,21 @@ class Helpers:
 
         # Convert to ndarray for the transpose, then back to list of lists.
         # This replaces the old O(rows*cols) Python nested loop.
-        arr = np.array(matrix, dtype=object)
-        return arr.T.tolist()
+        try:
+            arr = np.array(matrix, dtype=object)
+        except ValueError:  # some ragged shapes numpy refuses outright
+            arr = None
+        if arr is not None and arr.ndim >= 2:
+            return arr.T.tolist()
+
+        # Ragged input. numpy usually does not raise here: it builds a 1-D
+        # object array holding the rows, .T is a no-op on 1-D, and the rows
+        # would come back untransposed. Pad the short rows with None instead.
+        width = max((len(row) for row in matrix), default=0)
+        return [
+            [row[i] if i < len(row) else None for row in matrix]
+            for i in range(width)
+        ]
 
     def transpose_autoballance(self, data):
         """Transpose a ragged (non-rectangular) list, padding with None."""

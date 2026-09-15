@@ -355,6 +355,20 @@ class TestHelpersTranspose:
         result[0, 1] = 99
         assert arr[1, 0] == 99
 
+    def test_transpose_ragged_pads_with_none(self):
+        """Empty-string spacer columns between data columns, as the CSV writers use.
+
+        numpy turns ragged input into a 1-D object array, on which .T is a
+        no-op, so the rows used to come back untransposed.
+        """
+        h = self._make_helpers()
+        matrix = [[1, 2, 3], np.array([4.0, 5.0, 6.0]), "", [7, None, 9]]
+        assert h.transpose(matrix) == [
+            [1, 4.0, None, 7],
+            [2, 5.0, None, None],
+            [3, 6.0, None, 9],
+        ]
+
     def test_transpose_autoballance_ragged(self):
         h = self._make_helpers()
         data = [[1, 2, 3], [4, 5]]
