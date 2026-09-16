@@ -173,7 +173,14 @@ class Stabilization:
     def _write_binary(self, data, Ly, Lx, n_time):
         bin_path = os.path.join(self.run_config.working_dir, 'movie.bin')
         reg_bin_path = os.path.join(self.run_config.working_dir, 'movie_registered.bin')
-        
+
+        # deliberately not routed through ssd_guard: run() already returns
+        # early when the registered output exists, so these scratch binaries are
+        # only written on a genuinely fresh registration - and buffering a
+        # multi-GB movie in RAM just to hash it would cost far more than the
+        # write it might save. The stitched .tif at the end goes through the
+        # guard automatically via the patched tifffile.imwrite.
+
         with open(bin_path, 'wb') as f:
             data.astype(np.int16).tofile(f)
         # create registered binary file with correct size

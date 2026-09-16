@@ -8,6 +8,7 @@ from stabilization import Stabilization
 from config import RunConfig, MovieConfig, TriggerConfig
 from trigger import Trigger 
 from helpers import Helpers
+import ssd_guard
 
 def parse_metadata(file_path: str):
     txt_path = file_path[:-4] + '.txt'
@@ -65,6 +66,9 @@ def adjust_config_params(run_config, movie_config, trigger_config, helper):
 
 def main(config_path):
     print(f"\nWorking on workflow: {config_path}\n")
+    # skip disk writes whose result did not change (src/ssd_guard.py)
+    ssd_guard.install()
+    ssd_guard.reset_stats()
     helper = Helpers()
     # import parsers to read from yaml files
     yaml_parser = YAML()
@@ -136,7 +140,7 @@ def main(config_path):
         adjust_config_params(run_config, movie_config, trigger_config, helper)
 
     if modified:
-        with open(config_path, 'w') as file:
+        with ssd_guard.guarded_open(config_path, 'w') as file:
             yaml_parser.dump(raw, file)  # preserves formatting
     
 
@@ -191,6 +195,8 @@ def main(config_path):
             finally:
                 if 'trigger_analysis' in locals():
                     del trigger_analysis # they get deleted even if there is an error
+
+    ssd_guard.report()
    
     # if multiprocessing:
     #     import multiprocessing as mp
