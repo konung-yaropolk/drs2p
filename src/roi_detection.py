@@ -268,7 +268,7 @@ class RoiMeasurer:
         elif roi_type == 1:  # rect
            mask[roi.top:roi.bottom, roi.left:roi.right] = True
         else:
-            print(f"WARNING: Unsupported ROI type {roi.roitype} for ROI {roi.name} — skipping")
+            print(f"WARNING: Unsupported ROI type {roi.roitype} for ROI {roi.name} - skipping")
         
         return mask
     def run(self):

@@ -137,6 +137,14 @@ import suite2p
 import torch
 
 
+# suite2p's BinaryFile format is int16, so every movie has to be converted to
+# it regardless of how it was acquired.
+INT16_MIN, INT16_MAX = -32768, 32767
+INT16_SPAN = INT16_MAX - INT16_MIN          # 65535
+# frames converted at a time, to keep the temporary float copy small
+BIN_CHUNK_FRAMES = 256
+
+
 class Stabilization:
     def __init__(self, run_config, movie_config):
         print("stabilization")
@@ -149,7 +157,12 @@ class Stabilization:
             run_config.working_dir,
             movie_config.file_name[:-4] + '_registered.tif'
         )
-    
+        # affine mapping used to fit the movie into int16 for suite2p,
+        # undone again when the registered movie is written back out
+        self.input_dtype = None
+        self.int16_offset = 0.0
+        self.int16_scale = 1.0
+
     def run(self):
         if os.path.exists(self.output_path):
             print(f"Registered file already exists, skipping: {self.output_path}")
@@ -166,10 +179,82 @@ class Stabilization:
     
     def _read_data_get_datashape(self):
         data = imread(self.file_path)
-        print(f"Imaging data of shape: {data.shape}")
+        print(f"Imaging data of shape: {data.shape}, dtype: {data.dtype}")
+        self.input_dtype = data.dtype
         n_time, Ly, Lx = data.shape
         return data, Ly, Lx, n_time
-    
+
+    def _plan_int16_mapping(self, data):
+        """Work out how to fit `data` into int16 without wrapping around.
+
+        A plain .astype(np.int16) silently wraps anything outside the int16
+        range - a uint16 recording brighter than 32767 arrives at suite2p with
+        negative pixels and registration then aligns garbage. Map it instead:
+
+            stored = (value - offset) * scale
+
+        `offset` just re-centres the range and is lossless, which is enough on
+        its own for any 16-bit recording. `scale` only comes into play when the
+        span is genuinely wider than int16 can hold (32-bit or float input).
+        A movie that already fits keeps offset 0 / scale 1, so the common case
+        is byte-for-byte what it was before.
+        """
+        if np.issubdtype(data.dtype, np.integer):
+            info = np.iinfo(data.dtype)
+            if info.min >= INT16_MIN and info.max <= INT16_MAX:
+                return 0.0, 1.0          # uint8/int8/int16: cannot overflow
+
+        lo, hi = float(data.min()), float(data.max())
+        if lo >= INT16_MIN and hi <= INT16_MAX:
+            return 0.0, 1.0
+
+        span = hi - lo
+        if span <= INT16_SPAN:
+            # shift only: exact for e.g. uint16 0..65535 -> -32768..32767
+            return lo - INT16_MIN, 1.0
+        # too wide to shift alone; centre it and squeeze. Lossy, but the
+        # alternative is wraparound.
+        return (hi + lo) / 2.0, (INT16_SPAN - 1) / span
+
+    def _work_dtype(self):
+        """Float type wide enough to hold the input's values exactly.
+
+        float32 only carries 24 bits of mantissa, so anything wider than a
+        16-bit integer (or a float64 movie) has to go through float64. With
+        float32 the clip bound for e.g. uint32 rounds up to 4294967296.0 and
+        overflows back to 0 on the cast - the very wraparound this mapping
+        exists to prevent.
+        """
+        dt = np.dtype(self.input_dtype)
+        if np.issubdtype(dt, np.integer):
+            return np.float32 if np.iinfo(dt).bits <= 16 else np.float64
+        return np.float32 if dt == np.float32 else np.float64
+
+    def _to_int16(self, block):
+        """Apply the planned mapping to a block of frames."""
+        if (self.int16_offset, self.int16_scale) == (0.0, 1.0):
+            return block.astype(np.int16)
+        work = self._work_dtype()
+        shifted = block.astype(work) - work(self.int16_offset)
+        if self.int16_scale != 1.0:
+            shifted *= work(self.int16_scale)
+        return np.clip(np.round(shifted), INT16_MIN, INT16_MAX).astype(np.int16)
+
+    def _from_int16(self, block):
+        """Undo the mapping, back to the input's units and dtype."""
+        if (self.int16_offset, self.int16_scale) == (0.0, 1.0):
+            return block
+        work = self._work_dtype()
+        restored = block.astype(work)
+        if self.int16_scale != 1.0:
+            restored /= work(self.int16_scale)
+        restored += work(self.int16_offset)
+        if np.issubdtype(self.input_dtype, np.integer):
+            info = np.iinfo(self.input_dtype)
+            # registration interpolates, so clip before casting back
+            restored = np.clip(np.round(restored), info.min, info.max)
+        return restored.astype(self.input_dtype)
+
     def _write_binary(self, data, Ly, Lx, n_time):
         bin_path = os.path.join(self.run_config.working_dir, 'movie.bin')
         reg_bin_path = os.path.join(self.run_config.working_dir, 'movie_registered.bin')
@@ -181,8 +266,17 @@ class Stabilization:
         # write it might save. The stitched .tif at the end goes through the
         # guard automatically via the patched tifffile.imwrite.
 
+        self.int16_offset, self.int16_scale = self._plan_int16_mapping(data)
+        if (self.int16_offset, self.int16_scale) != (0.0, 1.0):
+            print(f"{data.dtype} movie does not fit int16: mapping with "
+                  f"offset={self.int16_offset:g}, scale={self.int16_scale:g}"
+                  f"{'' if self.int16_scale == 1.0 else ' (lossy)'} for "
+                  f"registration; undone when the registered movie is saved")
+
+        # converted per chunk so the temporary float copy stays small
         with open(bin_path, 'wb') as f:
-            data.astype(np.int16).tofile(f)
+            for i in range(0, n_time, BIN_CHUNK_FRAMES):
+                self._to_int16(data[i:i + BIN_CHUNK_FRAMES]).tofile(f)
         # create registered binary file with correct size
         n_bytes = n_time * Ly * Lx * 2  # 2 bytes per int16 pixel
         with open(reg_bin_path, 'wb') as f:
@@ -260,10 +354,14 @@ class Stabilization:
             os.path.join(self.run_config.working_dir, 'reg_tif', '*.tif')))
         print(f"Found {len(tiff_files)} registered tiff chunks")
         
-        arrays = [imread(f) for f in tiff_files]
+        # undo the int16 mapping chunk by chunk, before concatenating, so no
+        # second full-size copy of the movie is needed
+        arrays = [self._from_int16(imread(f)) for f in tiff_files]
         full_movie = np.concatenate(arrays, axis=0)
         imwrite(self.output_path, full_movie, imagej=True, compression='zlib')
-        print(f"Stitched {len(arrays)} chunks → {full_movie.shape}")
+        # plain ASCII: the Windows console is cp1252 and raises
+        # UnicodeEncodeError on anything outside it, aborting the run
+        print(f"Stitched {len(arrays)} chunks -> {full_movie.shape}")
     
     def _cleanup(self):
         # remove temp binary files

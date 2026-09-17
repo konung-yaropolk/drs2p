@@ -50,9 +50,19 @@ class DerivativesCalc(Helpers, Debug):
         self.log += '\n' + message
     def compute_gaussian_derivatives(self, image_stack, start, end, sigma):
 
+        # gaussian_filter returns its output in the INPUT dtype, so an integer
+        # stack gets the derivative rounded to whole numbers - and on an
+        # unsigned stack every negative derivative wraps around to a huge
+        # positive value that the np.maximum(..., 0) clip downstream can no
+        # longer remove. Movies arrive as int16, uint16 or float depending on
+        # the acquisition and registration path, so promote to float first.
+        stack = image_stack[start:end]
+        if not np.issubdtype(stack.dtype, np.floating):
+            stack = stack.astype(np.float32)
+
         # Compute derivatives along z-axis
         dz = gaussian_filter(
-            image_stack[start:end], sigma=[sigma,  sigma,  sigma], order=[1, 0, 0]
+            stack, sigma=[sigma,  sigma,  sigma], order=[1, 0, 0]
         )
 
         return dz
@@ -307,7 +317,7 @@ class TifDerivativeProcess(Helpers):
 
         if blue_channel_path:
             blue_channel = Image.open(blue_channel_path)
-            blue_array = np.array(blue_channel)
+            blue_array = np.array(blue_channel).astype(np.float32)
             channels.append(blue_array)
 
         # Stack the arrays along the first axis to create a multi-channel image
