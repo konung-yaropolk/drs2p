@@ -16,9 +16,12 @@ def parse_metadata(file_path: str):
         trigger = '"[Event '
         strings = file.readlines()
 
-        string = strings[12]
-        if not string.startswith('"T Dimension"'):
-            raise ValueError
+        if not any(trigger in line for line in strings):
+            raise ValueError(f"No trigger lines ({trigger!r}) found in metadata file: {txt_path}")
+
+        string = next((line for line in strings if line.startswith('"T Dimension"')), None)
+        if string is None:
+            raise ValueError(f'No "T Dimension" entry found in metadata file: {txt_path}')
 
         n_slides = int(re.findall(r'\t"([^[]*), ', string)[0])
         t_duration = float(re.findall(r'- ([^[]*)\ \[', string)[0])
@@ -109,10 +112,11 @@ def main(config_path):
             file_path = os.path.join(run_config.working_dir, movie_config.file_name)
             file_path = os.path.normpath(file_path)
             try:
+                print(f"Parsing metadata from: {file_path}")
                 events, t_resolution, t_duration, n_slides = parse_metadata(file_path)
             except FileNotFoundError:
                 try:
-                    path = os.path.join(os.path.split(file_path)[0], helper.calculate_suffix_and_nosuffix(file_path)[1])
+                    path = os.path.join(os.path.split(file_path)[0], helper.calculate_suffix_and_nosuffix(file_path)[1][:-4])
                     events, t_resolution, t_duration, n_slides = parse_metadata(path + '.tif')
                 except FileNotFoundError:
                     # delete the movie from the config to avoid errors in the rest of the script, 
