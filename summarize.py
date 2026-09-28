@@ -43,10 +43,6 @@ from pathlib import Path
 import matplotlib
 matplotlib.use("Agg")  # headless: render plots to files, never open a window
 
-sys.path.insert(0, str(Path(__file__).parent / "src"))
-import ssd_guard  # skip disk writes whose result did not change
-ssd_guard.install()
-
 import numpy as np
 import pandas as pd
 from openpyxl import Workbook
@@ -369,7 +365,6 @@ def main():
         print(f"No working folders with the expected structure found under {ROOT}")
     else:
         print(f"Done: processed {processed} working folder(s).")
-    ssd_guard.report()
 
 
 if __name__ == "__main__":
