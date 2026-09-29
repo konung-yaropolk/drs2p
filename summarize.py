@@ -5,21 +5,30 @@ Run it pointing at a ROOT directory that contains one or more working folders:
 
     ROOT/
         <WorkFolder A>/
-            <YYYY_MM_DD>[_M#]_Field..._CALCULATIONS_auto_/
+            <YYYY_MM_DD>[_M#]_Field..._CALCULATIONS_auto_<suffix>/
                 outputs_.../
-                    _Ampl_A&C_rows-roi_cols-epoch__auto_.csv
-                    _Ampl_C_rows-roi_cols-epoch__auto_.csv
-                    _AUC_A&C_rows-roi_cols-epoch__auto_.csv
-                    _AUC_C_rows-roi_cols-epoch__auto_.csv
-                    _Bin_C_rows-roi_cols-epoch__auto_.csv
+                    _Ampl_A&C_rows-roi_cols-epoch_<suffix>_auto_.csv
+                    _Ampl_C_rows-roi_cols-epoch_<suffix>_auto_.csv
+                    _AUC_A&C_rows-roi_cols-epoch_<suffix>_auto_.csv
+                    _AUC_C_rows-roi_cols-epoch_<suffix>_auto_.csv
+                    _Bin_C_rows-roi_cols-epoch_<suffix>_auto_.csv
         <WorkFolder B>/ ...
 
-Two kinds of output are produced (all as .xlsx):
+<suffix> is whatever the pipeline appended after "_CALCULATIONS_auto_", i.e.
+the trigger's label -- "_Control", "_Application", or empty when the trigger
+had no label. Each suffix is a separate experimental condition, so it is
+summarized SEPARATELY: conditions are never pooled, and never end up in the
+same paired statistical test.
 
-  * ROOT/summary_for_<workfolder>.xlsx  -- one row per day (instance), the
-    grand mean over every surviving cell of that day.
-  * <workfolder>/summary_<instance>.xlsx -- a local, per-day summary whose rows
-    are individual ROIs (each value is the mean across that ROI's epochs).
+Two kinds of output are produced (all as .xlsx), one set per suffix:
+
+  * ROOT/summary_for_<workfolder>[_<suffix>].xlsx -- one row per day
+    (instance), the grand mean over every surviving cell of that day.
+  * <workfolder>/summary_<instance>[_<suffix>].xlsx -- a local, per-day summary
+    whose rows are individual ROIs (each value is the mean across that ROI's
+    epochs).
+
+An empty suffix keeps the old, unsuffixed file names.
 
 Both share the same column layout:
     <id> | Ampl A&C | Ampl C | Ampl C/A&C | <blank> | AUC A&C | AUC C | AUC C/A&C
@@ -28,11 +37,22 @@ Folders without the expected structure are ignored.
 
 The "instance" identifier is everything before "_Field" in a calculation
 folder's name, i.e. the date plus an optional _M1 / _M2 suffix. Several folders
-can share the same instance (e.g. two _Field acquisitions on the same date);
-their ROIs are pooled together for that day.
+can share the same instance AND suffix (e.g. two _Field acquisitions on the
+same date); their ROIs are pooled together for that day and condition.
 
 For every output folder, rows (ROIs) whose TRUE-rate in Bin_C is below THRESHOLD
 are dropped from the Ampl / AUC matrices before anything is computed.
+
+When several conditions are present, that ROI filter is taken from the control
+condition (BINARIZATION_SOURCE) and applied unchanged to all the others, so
+Control and Application report the same ROIs and ROI selection cannot be
+biased by the drug response. Folders are paired with their control by
+acquisition (same day, same _Field folder), since the ROI indices only line up
+within one movie. A folder with no control counterpart, or one whose ROI count
+disagrees with it, falls back to its own filter and says so.
+
+The "% AP success" columns stay per-condition: they measure how often each ROI
+actually fired under that condition, so they are never inherited.
 """
 
 import re
@@ -67,6 +87,13 @@ SNR_THRESHOLD = 5.0
 # Keep a ROI only if at least this fraction of its cells pass the SNR threshold.
 ROI_THRESHOLD = 0.29
 
+# When a working folder holds several conditions (suffixes), the ROI filter is
+# taken from THIS condition and applied unchanged to all the others, so every
+# condition reports the same set of ROIs and the selection cannot be biased by
+# the drug response. Matched case-insensitively against the folder suffix;
+# set to "" to give every condition its own filter again.
+BINARIZATION_SOURCE = "Control"
+
 # Metric -> glob pattern inside each outputs_ folder. Order defines column order.
 # The wildcard covers varying suffixes like __auto_ vs __Control_auto_ etc.
 METRIC_FILES = {
@@ -79,10 +106,16 @@ METRICS = list(METRIC_FILES)
 SNR_AC_FILE = "_SNR_A&C_rows-roi_cols-epoch_*.csv"
 SNR_C_FILE  = "_SNR_C_rows-roi_cols-epoch_*.csv"
 
-# A valid calculation folder: date (+ optional _M#) followed by _Field ... CALCULATIONS_auto_
-DIR_RE = re.compile(r"^(\d{4}_\d{2}_\d{2}(?:_M\d+)?)_Field.*CALCULATIONS_auto_$")
-
 CALC_SUFFIX = "_CALCULATIONS_auto_"
+
+# A valid calculation folder: date (+ optional _M#), then _Field ..., then
+# CALCULATIONS_auto_, then the trigger label. Group 1 is the instance (day),
+# group 2 the label -- empty for an unlabelled trigger, "_Control" etc.
+# otherwise. The leading .* is greedy on purpose so the LAST occurrence of
+# CALC_SUFFIX is the separator.
+DIR_RE = re.compile(
+    r"^(\d{4}_\d{2}_\d{2}(?:_M\d+)?)_Field.*" + re.escape(CALC_SUFFIX) + r"(.*)$"
+)
 
 # Paired comparisons to test + plot in every summary.
 # (left/right are 0-based indices into an output row; anchor is the Excel column
@@ -105,11 +138,13 @@ def snr_to_bin(path: Path) -> pd.DataFrame:
     return snr >= SNR_THRESHOLD
 
 
-def filtered_matrices_for_folder(out_dir: Path):
-    """Return {metric: filtered DataFrame} for one outputs_ folder.
+def load_matrices_for_folder(out_dir: Path):
+    """Return {metric: UNFILTERED DataFrame} plus the folder's own ROI mask.
 
-    ROIs (rows) below the Bin_C TRUE-rate threshold are dropped; the surviving
-    rows keep their original index so each ROI stays identifiable.
+    Nothing is dropped here. Which ROIs survive is decided later, in
+    apply_binarization(), because when a working folder holds several
+    conditions the mask comes from the control condition rather than from each
+    folder on its own.
 
     Returns None (and warns) if a required file is missing or shapes mismatch.
     """
@@ -134,7 +169,7 @@ def filtered_matrices_for_folder(out_dir: Path):
     binarization = bin_c | bin_ac
 
     # Per-ROW (per-ROI) fraction of cells above SNR threshold; keep rows at/above ROI_THRESHOLD.
-    keep_mask = binarization.mean(axis=1) >= ROI_THRESHOLD
+    own_mask = binarization.mean(axis=1) >= ROI_THRESHOLD
 
     result = {}
     for metric, pattern in METRIC_FILES.items():
@@ -148,12 +183,14 @@ def filtered_matrices_for_folder(out_dir: Path):
             print(f"  ! shape mismatch for {pattern} in {out_dir.name}; skipping folder")
             return None
 
-        result[metric] = mat[keep_mask.values]
+        result[metric] = mat                 # unfiltered; apply_binarization() cuts it
 
     # Per-ROI AP success rate (fraction of epochs above SNR threshold) for ALL ROIs (no filter).
-    result["AP A&C"]    = bin_ac.mean(axis=1)
-    result["AP C"]      = bin_c.mean(axis=1)
-    result["keep_mask"] = keep_mask          # bool Series over all ROI indices
+    # These stay per-condition: they measure how often each ROI actually fired
+    # under THAT condition, so they must not be inherited from the control.
+    result["AP A&C"]  = bin_ac.mean(axis=1)
+    result["AP C"]    = bin_c.mean(axis=1)
+    result["own_mask"] = own_mask            # bool Series over all ROI indices
     return result
 
 
@@ -165,44 +202,125 @@ def find_outputs_dir(calc_dir: Path):
     return None
 
 
-def source_token(calc_dir_name: str, instance: str) -> str:
+def source_token(calc_dir_name: str, instance: str, suffix: str) -> str:
     """Short, traceable tag for an acquisition folder (e.g. 'Field_1_0001...')."""
     token = calc_dir_name
-    if token.endswith(CALC_SUFFIX):
-        token = token[: -len(CALC_SUFFIX)]
+    tail = CALC_SUFFIX + suffix
+    if token.endswith(tail):
+        token = token[: -len(tail)]
     if token.startswith(instance + "_"):
         token = token[len(instance) + 1:]
     return token
 
 
-def collect_instances(work_folder: Path):
-    """Map instance -> list of (source_token, {metric: filtered DataFrame}).
+def clean_suffix(suffix: str) -> str:
+    """Normalize a trigger label for use in a file name.
 
-    Empty if the working folder has no valid instance.
+    Labels come from the YAML and usually already carry a leading underscore
+    ("_Control"), but they are free text, so strip the separators off and let
+    summary_name() put exactly one back. Characters that are illegal in a file
+    name are replaced rather than allowed to blow up the write.
     """
-    instances = {}
+    cleaned = re.sub(r'[<>:"/\\|?*]', "-", suffix).strip().strip("_")
+    return cleaned
+
+
+def summary_name(prefix: str, stem: str, suffix: str, ext: str = ".xlsx") -> str:
+    """'<prefix><stem>[_<suffix>]<ext>' -- unsuffixed name when no label."""
+    cleaned = clean_suffix(suffix)
+    return f"{prefix}{stem}_{cleaned}{ext}" if cleaned else f"{prefix}{stem}{ext}"
+
+
+def condition_label(suffix: str) -> str:
+    """Human-readable condition name for plot titles and log lines."""
+    return clean_suffix(suffix) or "no label"
+
+
+def is_binarization_source(suffix: str) -> bool:
+    """True if this suffix is the condition the ROI filter is taken from."""
+    wanted = clean_suffix(BINARIZATION_SOURCE)
+    return bool(wanted) and clean_suffix(suffix).lower() == wanted.lower()
+
+
+def apply_binarization(conditions):
+    """Decide each folder's surviving ROIs, then cut the metric matrices.
+
+    With several conditions present, the ROI filter is taken from the
+    BINARIZATION_SOURCE condition and applied unchanged to the others. ROI
+    indices line up because the conditions are different triggers over the
+    same movie and the same ROI set, so a folder is matched to its control by
+    (instance, source_token) - i.e. the same acquisition.
+
+    A folder keeps its own filter when there is no control to inherit from, or
+    when the two disagree about the number of ROIs.
+    """
+    # mask from the control condition, per acquisition
+    donors = {}
+    for suffix, instances in conditions.items():
+        if not is_binarization_source(suffix):
+            continue
+        for instance, folders in instances.items():
+            for token, raw in folders:
+                donors[(instance, token)] = raw["own_mask"]
+
+    for suffix, instances in conditions.items():
+        inherits = donors and not is_binarization_source(suffix)
+        for instance, folders in instances.items():
+            for token, raw in folders:
+                mask = raw["own_mask"]
+                if inherits:
+                    donor = donors.get((instance, token))
+                    if donor is None:
+                        print(f"  ! {instance} {token} [{condition_label(suffix)}]: "
+                              f"no {clean_suffix(BINARIZATION_SOURCE)} counterpart; "
+                              f"keeping its own binarization")
+                    elif len(donor) != len(mask):
+                        print(f"  ! {instance} {token} [{condition_label(suffix)}]: "
+                              f"{len(mask)} ROIs vs {len(donor)} in "
+                              f"{clean_suffix(BINARIZATION_SOURCE)}; "
+                              f"keeping its own binarization")
+                    else:
+                        mask = donor
+
+                raw["keep_mask"] = mask
+                for metric in METRICS:
+                    raw[metric] = raw[metric][mask.values]
+    return conditions
+
+
+def collect_conditions(work_folder: Path):
+    """Map suffix -> instance -> [(source_token, {metric: filtered DataFrame})].
+
+    Calculation folders are grouped first by their suffix (the trigger label,
+    i.e. the experimental condition) and only then by day, so that two
+    conditions recorded on the same date stay completely separate.
+
+    Empty if the working folder has no valid calculation folder.
+    """
+    conditions = {}
     for calc_dir in sorted(work_folder.iterdir()):
         if not calc_dir.is_dir():
             continue
         m = DIR_RE.match(calc_dir.name)
         if not m:
             continue  # ignore non-matching directories
-        instance = m.group(1)
+        instance, suffix = m.group(1), m.group(2)
 
         out_dir = find_outputs_dir(calc_dir)
         if out_dir is None:
             print(f"  ! no outputs_ folder in {calc_dir.name}; skipping")
             continue
 
-        print(f"  processing {calc_dir.name}  ->  instance '{instance}'")
-        mats = filtered_matrices_for_folder(out_dir)
+        print(f"  processing {calc_dir.name}"
+              f"  ->  instance '{instance}', condition '{condition_label(suffix)}'")
+        mats = load_matrices_for_folder(out_dir)
         if mats is None:
             continue
 
-        instances.setdefault(instance, []).append(
-            (source_token(calc_dir.name, instance), mats)
+        conditions.setdefault(suffix, {}).setdefault(instance, []).append(
+            (source_token(calc_dir.name, instance, suffix), mats)
         )
-    return instances
+    return conditions
 
 
 def make_row(label, vals):
@@ -335,28 +453,36 @@ def main():
     processed = 0
 
     for work_folder in candidates:
-        instances = collect_instances(work_folder)
-        if not instances:
+        conditions = collect_conditions(work_folder)
+        if not conditions:
             # No valid structure inside -> ignore this folder.
             continue
+        apply_binarization(conditions)
 
-        # ROOT-level summary: one row per day.
-        root_path = ROOT / f"{SUMMARY_PREFIX}{work_folder.name}.xlsx"
-        if root_path.exists():
-            print(f"Skipping {root_path.name} (already exists)")
-        else:
-            write_xlsx("instance", day_rows(instances), root_path, plot_title="Statistics on mice")
-            print(f"Wrote {len(instances)} day(s) to {root_path}")
+        # Each suffix (condition) is summarized on its own, start to finish.
+        for suffix in sorted(conditions):
+            instances = conditions[suffix]
+            condition = condition_label(suffix)
 
-        # Local per-day summaries (rows = ROIs) inside the working folder.
-        for instance in sorted(instances):
-            local_path = work_folder / f"{LOCAL_PREFIX}{instance}.xlsx"
-            if local_path.exists():
-                print(f"    Skipping {local_path.name} (already exists)")
-                continue
-            rows = roi_rows(instances[instance])
-            write_xlsx("ROI", rows, local_path, plot_title=f"Statistic on rois\n{instance}")
-            print(f"    local: {len(rows)} ROI(s) -> {local_path}")
+            # ROOT-level summary: one row per day, for this condition only.
+            root_path = ROOT / summary_name(SUMMARY_PREFIX, work_folder.name, suffix)
+            if root_path.exists():
+                print(f"Skipping {root_path.name} (already exists)")
+            else:
+                write_xlsx("instance", day_rows(instances), root_path,
+                           plot_title=f"Statistics on mice\n{condition}")
+                print(f"Wrote {len(instances)} day(s) [{condition}] to {root_path}")
+
+            # Local per-day summaries (rows = ROIs) inside the working folder.
+            for instance in sorted(instances):
+                local_path = work_folder / summary_name(LOCAL_PREFIX, instance, suffix)
+                if local_path.exists():
+                    print(f"    Skipping {local_path.name} (already exists)")
+                    continue
+                rows = roi_rows(instances[instance])
+                write_xlsx("ROI", rows, local_path,
+                           plot_title=f"Statistic on rois\n{instance} {condition}")
+                print(f"    local: {len(rows)} ROI(s) [{condition}] -> {local_path}")
 
         processed += 1
         print()
