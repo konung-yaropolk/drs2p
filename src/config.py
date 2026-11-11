@@ -135,7 +135,7 @@ class RunConfig:
     
     # ALL analysis defaults live here and only here
     relative_values: bool = True # plot and calculate in for of dF/F0 (almost always true unless certain exotic cases)
-    sync_coef: float = -0.00274 ## Adjust the sampling interval to account for the
+    sync_coef: float = -0.0031556459008686036 ## Adjust the sampling interval to account for the
     # clock synchronization of the microscope's hardware and PC
     # Coefficient estimated experimentally
     # -0.0031556459008686036  more precise
