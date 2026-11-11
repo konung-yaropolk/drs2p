@@ -25,7 +25,11 @@ def parse_metadata(file_path: str):
 
         n_slides = int(re.findall(r'\t"([^[]*), ', string)[0])
         t_duration = float(re.findall(r'- ([^[]*)\ \[', string)[0])
-        t_resolution = t_duration / n_slides
+        # OIR reports the time range from frame 0 to the final frame, so a
+        # stack of N frames spans N - 1 inter-frame intervals.
+        if n_slides < 2:
+            raise ValueError(f'"T Dimension" must contain at least 2 frames: {txt_path}')
+        t_resolution = t_duration / (n_slides - 1)
 
         events = [
             (strings[i+1][18:-2], float(strings[i+2][15:-6])/1000)
