@@ -42,7 +42,7 @@ import zipfile
 
 # The master switch.  False  ->  every write happens unconditionally, exactly
 # as it did before this module existed.
-SSD_FRIENDLY_MODE = True
+SSD_FRIENDLY_MODE = False
 
 # Environment override, handy for a one-off run without editing the source:
 #   DRS2P_SSD_FRIENDLY=0  disables,  =1  enables.
