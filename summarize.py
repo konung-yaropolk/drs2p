@@ -828,6 +828,7 @@ def group_barplot(groups, names, png_path: Path, y_label: str = "", plot_title: 
         plot_title=plot_title,
         y_label=y_label,
         figure_scale_factor=1.0,
+        # overlay="honeycomb",
         **res,
     )
     plot.plot()
