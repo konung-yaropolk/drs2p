@@ -34,15 +34,26 @@ Both share the same column layout:
     <id> | Ampl A&C | Ampl C | Ampl C/A&C | <blank> | AUC A&C | AUC C | AUC C/A&C
 
 Under the data rows every sheet carries its paired Wilcoxon bar plots and,
-below them, six histograms -- Ampl A&C, Ampl C, Ampl A&C/C, AUC A&C, AUC C,
+below them, four histograms -- Ampl A&C vs C, Ampl A&C/C, AUC A&C vs C,
 AUC A&C/C -- in a 3-wide grid. Each panel is the per-folder figure of
-make_histograms.py for one metric: the pooled bouton histogram with one
-empirical CDF per day drawn thin behind their bolded mean, so no single day
-dominates the curve. A day is one n whatever it holds -- several acquisitions
+make_histograms.py: the pooled bouton histogram with one empirical CDF per day
+drawn thin behind their bolded mean, so no single day dominates the curve. A&C
+and C are the same boutons, so they share a panel, overlaid in the colours of
+the bar plots above them (A&C grey, C red); the ratio keeps its own panel. A day is one n whatever it holds -- several acquisitions
 of the same date (and the same _M number) are pooled into it as repetitions,
 the same unit the bar plots above are tested on. The distributions are always
 ROI-level, so a ROOT summary shows the boutons of all the days it covers, not
 its day means.
+
+Both axes of a panel are windowed so outliers cannot squeeze the interesting
+middle flat. The x window is the central HIST_COVERAGE percent (94) of the
+values, widened back out to the Tukey fence so a spread with no real outliers
+is still shown whole, and the count axis stops just past the HIST_Y_COVERAGE
+percentile of the non-empty bins whenever one bin towers over
+the rest -- a saturated ratio or a mode every bouton shares. A well-behaved panel keeps its full count axis.
+Nothing is dropped from the statistics: the CDFs still run over every value,
+so a windowed panel starts above 0 and ends below 1, and the title reports how
+many boutons fell outside the view and how many bars run past the top.
 
 Every chart is embedded twice: as a PNG and as the SVG of the same figure,
 attached to it the way Excel stores a vector picture. Excel 2019 / Microsoft
@@ -65,6 +76,20 @@ together do, and those extra days would otherwise be lost.
 
 Only days present in every condition of a sheet take part there, since the test
 is paired.
+
+Working folders whose names end with one of GROUP_SUFFIXES -- "..._SHAM"
+against "..._SNI" -- are independent cohorts rather than conditions, and get
+
+  * ROOT/SHAM_vs_SNI_summary.xlsx -- the same side-by-side layout and the same
+    bar plots and distribution overlays, built once over every working folder
+    of each cohort.
+
+These are different animals, so nothing pairs: each cohort's days stay in their
+own rows, the two groups may hold different numbers of days, and the test
+AutoStatLib picks is the UNPAIRED one (Mann-Whitney / unpaired t-test for two
+groups) instead of the paired test the condition file uses. A row is labelled
+with its working folder as well as its day, since one cohort can span several
+folders and two of them may share a date.
 
 Folders without the expected structure are ignored.
 
@@ -170,12 +195,18 @@ DIR_RE = re.compile(
     r"^(\d{4}_\d{2}_\d{2}(?:_M\d+)?)_Field.*" + re.escape(CALC_SUFFIX) + r"(.*)$"
 )
 
+# What the measured quantities are called on an axis. The bar plots use them
+# on their y axis and the histogram panels on their x axis, so a panel reads
+# the same as the bars right above it.
+AMPL_LABEL = "Amplitude, ΔF/F"
+AUC_LABEL = "AUC, ΔF/F·s"
+
 # Paired comparisons to test + plot in every summary.
 # (left/right are 0-based indices into an output row; anchor is the Excel column
 #  letter under which the plot is dropped -- "B" = cols 2-3, "F" = cols 6-7.)
 COMPARISONS = [
-    {"left": 1, "right": 2, "names": ["Ampl A&C",        "Ampl C"],        "anchor": "B", "y_label": "Ampl"},
-    {"left": 5, "right": 6, "names": ["AUC A&C",         "AUC C"],         "anchor": "F", "y_label": "AUC"},
+    {"left": 1, "right": 2, "names": ["Ampl A&C",        "Ampl C"],        "anchor": "B", "y_label": AMPL_LABEL},
+    {"left": 5, "right": 6, "names": ["AUC A&C",         "AUC C"],         "anchor": "F", "y_label": AUC_LABEL},
     {"left": 9, "right": 10, "names": ["% AP A&C", "% AP C"], "anchor": "J", "y_label": "AP success % "},
 ]
 
@@ -194,6 +225,17 @@ RATIO_AXIS_LABELS = {
 # Cross-condition file name: "<CondA>_vs_<CondB>_summary_for_<workfolder>.xlsx".
 COMPARE_SEP = "_vs_"
 
+# Independent (between-animal) cohorts, recognised by the END of a WORKING
+# FOLDER's name -- "..._SHAM" against "..._SNI". Unlike the conditions above,
+# these are different animals, so their days cannot be paired: every day is an
+# independent n and the test AutoStatLib picks is the unpaired one. Several
+# working folders may belong to the same cohort; their days are pooled.
+# Matched case-insensitively. Order here is the order on the sheet.
+# Set to () to switch the cohort comparison off.
+GROUP_SUFFIXES = ("_SHAM", "_SNI")
+# Resulting ROOT-level file: "SHAM_vs_SNI_summary.xlsx".
+GROUP_SUMMARY_SUFFIX = "_summary.xlsx"
+
 # Anchor columns of the two bar plots when exactly two conditions are compared,
 # so that file keeps the layout it has always had. With more conditions the bar
 # plots are wider and get laid out from FIRST_PLOT_COL by their actual width.
@@ -209,16 +251,64 @@ HIST_BINS_N = 50    # histogram bins
 HIST_GRID_N = 512   # x-resolution of the empirical CDFs
 HIST_SIZE = (5, 3.2)  # inches, per panel
 
+# A&C and C describe the same boutons, so showing them apart wastes a panel
+# and makes the shift between them a matter of comparing two axes by eye. The
+# summaries therefore draw them overlaid, in the colours AutoStatLib gives the
+# bar plots right above: group 1 (A&C) black at low alpha, i.e. grey, group 2
+# (C) Set1 red. Keep these in step with AutoStatLib's default colormap.
+HIST_PAIRS = [("Ampl A&C", "Ampl C"), ("AUC A&C", "AUC C")]
+HIST_PAIR_COLORS = ["k", "#e41a1c"]   # bar plot group 1, group 2
+HIST_PAIR_ALPHA = 0.35                # AutoStatLib's bar fill alpha
+
+# The panels of a per-folder/ROOT summary, in grid order: each overlaid pair
+# followed by the ratio it produces. The VS summaries keep their own panels
+# (the ratios, one curve per condition) and are not touched by this.
+HIST_PANELS = [HIST_PAIRS[0], "Ampl A&C/C", HIST_PAIRS[1], "AUC A&C/C"]
+
+# What the x axis of a per-folder/ROOT panel is called. Keyed by the metric,
+# or -- for an overlaid pair, where the axis holds both stimuli -- by the
+# quantity alone ("Ampl"). Anything not named here keeps its column name. The
+# VS summaries label their axes from RATIO_AXIS_LABELS instead.
+HIST_AXIS_LABELS = {
+    "Ampl":       AMPL_LABEL,
+    "AUC":        AUC_LABEL,
+    "Ampl A&C/C": "Presynaptic Inhibition ratio (Amplitude)",
+    "AUC A&C/C":  "Presynaptic Inhibition ratio (AUC)",
+}
+
 # A ratio explodes when its denominator sits near zero, and a couple of such
-# boutons are enough to squash every bar of a panel into a single bin. When the
-# bulk of the values covers less than HIST_CLIP_SHARE of the full range, the
-# view is clipped to the percentile window below and the title says how many
-# boutons fell outside it. Nothing is dropped from the data itself: the CDF is
-# still computed over every value, so a clipped panel starts above 0.
-HIST_CLIP_PCT = 1.0     # percentile window kept in view: 1st .. 99th
-HIST_CLIP_SHARE = 0.25  # clip only when that window is this much of the range
-HIST_CLIP_MIN_N = 10    # ... and only with enough boutons for percentiles
+# boutons are enough to squash every bar of a panel into a single bin. The x
+# window therefore starts at the central HIST_COVERAGE percent of the values,
+# so the interesting middle fills the panel instead of a lone outlier at 2000.
+#
+# On its own a flat percentile rule is blunt: it throws the same share away
+# from a tidy spread that has no outliers at all, which pushes boutons -- and
+# the ends of the cumulative curves -- off the panel for nothing. So the
+# window is then widened back out to the Tukey fence (quartiles +/- K x IQR),
+# as far as the data actually reach. A well-behaved distribution fits inside
+# its own fence, so it is shown whole and nothing goes off-scale; only a tail
+# that runs past the fence is left out. Set HIST_FENCE_K = 0 for the plain
+# percentile window.
+#
+# Nothing is dropped from the data itself: the CDF is still computed over every
+# value, so a clipped panel starts above 0 and ends below 1, and the title says
+# how many boutons fell outside the view.
+HIST_COVERAGE = 94.0    # central share of the values kept in view (3rd-97th)
+HIST_FENCE_K = 1.5      # widen to quartiles +/- K x IQR; 0 disables
+HIST_CLIP_MIN_N = 10    # ... but only with enough boutons for percentiles
 HIST_DPI = 150
+
+# The count axis can blow out on its own: one towering bin -- a saturated
+# ratio, a mode every bouton shares -- flattens the rest of the panel even
+# after the x window is clipped. When the tallest bin stands more than
+# HIST_Y_FACTOR above the HIST_Y_COVERAGE percentile of the non-empty bins, the
+# axis stops just past that percentile and the bars running off the top are
+# counted in the title. A panel whose tallest bar is merely the mode of a
+# normal spread is left alone.
+HIST_Y_COVERAGE = 95.0   # share of non-empty bins kept fully in view
+HIST_Y_FACTOR = 3.0      # cap only when the tallest bar exceeds that by this
+HIST_Y_HEADROOM = 1.3    # breathing room above the cap
+HIST_Y_MIN_BINS = 5      # too few bins to judge -- leave the axis alone
 
 # Where the panels land: 3 per band, left to right, then the next band below.
 # The anchors are 6 columns apart so half-scale 750 px figures do not overlap.
@@ -647,23 +737,62 @@ def mean_cdf(arrays, grid):
 def hist_range(arrays):
     """Shared (pooled values, lo, hi, n_outside) for a set of arrays.
 
-    Full range by default; the percentile window when outliers would make the
-    panel unreadable (see HIST_CLIP_SHARE). n_outside counts the values left
-    out of the view, not out of the statistics.
+    The window is the central HIST_COVERAGE percent of the pooled values,
+    widened to the Tukey fence (and never past the data), so a heavy tail
+    cannot stretch the axis while an ordinary spread is still shown whole.
+    n_outside counts the values left out of the view, not out of the
+    statistics -- the CDFs are still computed over every value.
+
+    Falls back to the full range when there are too few values to take
+    percentiles from, or when the window would collapse.
     """
     pooled = np.concatenate([v for v in arrays if v.size])
     lo, hi = float(pooled.min()), float(pooled.max())
     outside = 0
 
     if pooled.size >= HIST_CLIP_MIN_N:
-        p_lo, p_hi = np.percentile(pooled, [HIST_CLIP_PCT, 100 - HIST_CLIP_PCT])
-        if p_hi > p_lo and (p_hi - p_lo) < HIST_CLIP_SHARE * (hi - lo):
+        tail = (100.0 - HIST_COVERAGE) / 2.0
+        p_lo, p_hi = np.percentile(pooled, [tail, 100.0 - tail])
+        if HIST_FENCE_K:
+            q1, q3 = np.percentile(pooled, [25.0, 75.0])
+            iqr = q3 - q1
+            if iqr > 0:
+                p_lo = min(p_lo, max(q1 - HIST_FENCE_K * iqr, lo))
+                p_hi = max(p_hi, min(q3 + HIST_FENCE_K * iqr, hi))
+        if p_hi > p_lo:
             lo, hi = float(p_lo), float(p_hi)
             outside = int(np.count_nonzero((pooled < lo) | (pooled > hi)))
 
     if hi <= lo:  # a single distinct value would give zero-width bins
         lo, hi = lo - 0.5, hi + 0.5
     return pooled, lo, hi, outside
+
+
+def count_ylim(bin_counts):
+    """(y limit, bars running past it) for a count axis, or (None, 0).
+
+    Keeps the HIST_Y_COVERAGE percentile of the non-empty bins in view when a
+    single bin towers over the rest; see HIST_Y_FACTOR. Returns None when the
+    panel is well behaved, leaving the axis to matplotlib.
+    """
+    nz = np.asarray([c for c in bin_counts if c > 0], dtype=float)
+    if nz.size < HIST_Y_MIN_BINS:
+        return None, 0
+    cap = float(np.percentile(nz, HIST_Y_COVERAGE))
+    if cap <= 0 or nz.max() <= HIST_Y_FACTOR * cap:
+        return None, 0
+    cap *= HIST_Y_HEADROOM
+    return cap, int(np.count_nonzero(nz > cap))
+
+
+def view_note(outside: int, cut: int) -> str:
+    """The ', N off-scale, M bar(s) cut' tail of a panel title."""
+    parts = []
+    if outside:
+        parts.append(f"{outside} off-scale")
+    if cut:
+        parts.append(f"{cut} bar{'s' if cut > 1 else ''} cut")
+    return (", " + ", ".join(parts)) if parts else ""
 
 
 def histogram_png(groups, metric, png_path: Path, title: str = "") -> bool:
@@ -681,12 +810,16 @@ def histogram_png(groups, metric, png_path: Path, title: str = "") -> bool:
     grid = np.linspace(lo, hi, HIST_GRID_N)
 
     fig, ax = plt.subplots(figsize=HIST_SIZE)
-    ax.hist(pooled, bins=edges, color="C0", edgecolor="black", linewidth=0.4)
+    counts, _ = ax.hist(pooled, bins=edges, color="C0",
+                        edgecolor="black", linewidth=0.4)[:2]
     ax.set_xlim(lo, hi)
-    ax.set_xlabel(metric)
+    cap, cut = count_ylim(counts)
+    if cap:
+        ax.set_ylim(0, cap)
+    ax.set_xlabel(HIST_AXIS_LABELS.get(metric, metric))
     ax.set_ylabel("bouton count")
     ax.set_title(f"{title}\n{metric}: {pooled.size} boutons, n={len(arrays)}"
-                 + (f", {outside} off-scale" if outside else ""), fontsize=9)
+                 + view_note(outside, cut), fontsize=9)
 
     # CDFs on a twin 0-1 axis: one thin line per day, their mean bold.
     axc = ax.twinx()
@@ -702,6 +835,77 @@ def histogram_png(groups, metric, png_path: Path, title: str = "") -> bool:
 
     if metric in RATIO_COLUMNS:  # a ratio of 1 means no effect
         ax.axvline(1.0, color="red", linestyle="--", lw=1)
+
+    fig.tight_layout()
+    save_figure(fig, png_path)
+    plt.close(fig)
+    return True
+
+
+def stim_label(metric: str) -> str:
+    """'Ampl A&C' -> 'A&C'; the stimulus half of a metric name."""
+    return metric.split(" ", 1)[1] if " " in metric else metric
+
+
+def metric_base(metric: str) -> str:
+    """'Ampl A&C' -> 'Ampl'; the quantity half of a metric name."""
+    return metric.split(" ", 1)[0]
+
+
+def pair_png(groups, metrics, png_path: Path, title: str = "") -> bool:
+    """A&C and C of one quantity overlaid in one panel.
+
+    Same boutons, same x window, so the shift between the two stimuli is read
+    off a single axis instead of two panels. Colours follow the bar plots
+    above: A&C grey, C red. Otherwise this is histogram_png -- pooled counts
+    behind, one thin CDF per day with the bolded mean in front.
+    """
+    present = [(metric, [v for v in groups.get(metric, {}).values() if v.size])
+               for metric in metrics]
+    present = [(metric, arrays) for metric, arrays in present if arrays]
+    if not present:
+        return False
+
+    pooled, lo, hi, outside = hist_range(
+        [v for _, arrays in present for v in arrays])
+    edges = np.linspace(lo, hi, HIST_BINS_N + 1)
+    grid = np.linspace(lo, hi, HIST_GRID_N)
+
+    fig, ax = plt.subplots(figsize=HIST_SIZE)
+    axc = ax.twinx()  # counts on ax, cumulative 0-1 on the twin
+    n_days = 0
+    all_counts = []
+    for i, (metric, arrays) in enumerate(present):
+        color = HIST_PAIR_COLORS[i % len(HIST_PAIR_COLORS)]
+        fill = (*matplotlib.colors.to_rgba(color)[:3], HIST_PAIR_ALPHA)
+        counts, _ = ax.hist(np.concatenate(arrays), bins=edges,
+                            histtype="stepfilled", facecolor=fill,
+                            edgecolor="none", linewidth=0.0)[:2]
+        all_counts.extend(counts)
+        n_days = max(n_days, len(arrays))
+        for v in arrays:
+            axc.plot(grid,
+                     np.searchsorted(np.sort(v), grid, side="right") / v.size,
+                     color=color, lw=0.8, alpha=0.3)
+        curve = mean_cdf(arrays, grid)
+        if curve is not None:
+            axc.plot(grid, curve, color=color, lw=2.4,
+                     label=f"{stim_label(metric)} (n={len(arrays)})")
+
+    ax.set_xlim(lo, hi)
+    cap, cut = count_ylim(all_counts)
+    if cap:
+        ax.set_ylim(0, cap)
+    base = metric_base(present[0][0])
+    ax.set_xlabel(HIST_AXIS_LABELS.get(base, base))
+    ax.set_ylabel("bouton count")
+    ax.set_title(f"{title}\n{base} {' vs '.join(stim_label(m) for m, _ in present)}:"
+                 f" {pooled.size} boutons, n={n_days}" + view_note(outside, cut),
+                 fontsize=9)
+
+    axc.set_ylim(0, 1)
+    axc.set_ylabel("cumulative (norm. to 1)")
+    axc.legend(loc="lower right", fontsize=7)
 
     fig.tight_layout()
     save_figure(fig, png_path)
@@ -731,10 +935,13 @@ def overlay_png(per_condition, metric, png_path: Path, title: str = "") -> bool:
     axh.set_zorder(ax.get_zorder() - 1)
     ax.patch.set_visible(False)
 
+    all_counts = []
     for i, (label, arrays) in enumerate(present):
         color = f"C{i}"
-        axh.hist(np.concatenate(arrays), bins=edges, histtype="stepfilled",
-                 color=color, lw=1.0, alpha=0.3)
+        counts, _ = axh.hist(np.concatenate(arrays), bins=edges,
+                             histtype="stepfilled", color=color,
+                             lw=1.0, alpha=0.3)[:2]
+        all_counts.extend(counts)
         # one thin curve per day behind the condition's mean, as the
         # per-condition histograms draw them
         for values in arrays:
@@ -745,13 +952,15 @@ def overlay_png(per_condition, metric, png_path: Path, title: str = "") -> bool:
             ax.plot(grid, curve, color=color, lw=2.4,
                     label=f"{label} (n={len(arrays)})")
 
+    cap, cut = count_ylim(all_counts)
+    if cap:
+        axh.set_ylim(0, cap)
     axh.set_ylabel("bouton count")
     ax.set_xlabel(RATIO_AXIS_LABELS.get(metric, metric))
     ax.set_ylabel("cumulative (norm. to 1)")
     ax.set_ylim(0, 1)
     ax.set_xlim(lo, hi)
-    ax.set_title(f"{title}\n{metric}" + (f" ({outside} off-scale)" if outside else ""),
-                 fontsize=9)
+    ax.set_title(f"{title}\n{metric}" + view_note(outside, cut), fontsize=9)
     ax.legend(loc="lower right", fontsize=7)
     if metric in RATIO_COLUMNS:
         ax.axvline(1.0, color="red", linestyle="--", lw=1)
@@ -787,12 +996,13 @@ def place_image_grid(ws, pngs, first_row: int, cols=HIST_COLS) -> int:
     return row + band + 1
 
 
-def add_histogram_band(ws, tmp: Path, first_row: int, render, metrics=HIST_METRICS,
+def add_histogram_band(ws, tmp: Path, first_row: int, render, metrics=HIST_PANELS,
                        prefix: str = "") -> int:
-    """Render one panel per metric and place them in a grid under the bar plots.
+    """Render one panel per entry and place them in a grid under the bar plots.
 
-    `render(metric, png_path)` draws a single panel and returns False when that
-    metric has no data; those panels are left out instead of being blank.
+    An entry is a metric name, or a tuple of names to overlay in one panel.
+    `render(entry, png_path)` draws a single panel and returns False when that
+    entry has no data; those panels are left out instead of being blank.
     """
     pngs = []
     for i, metric in enumerate(metrics):
@@ -804,18 +1014,24 @@ def add_histogram_band(ws, tmp: Path, first_row: int, render, metrics=HIST_METRI
     return place_image_grid(ws, pngs, first_row)
 
 
-def group_barplot(groups, names, png_path: Path, y_label: str = "", plot_title: str = ""):
-    """Run the paired test AutoStatLib picks for N groups and save a bar plot.
+def group_barplot(groups, names, png_path: Path, y_label: str = "",
+                  plot_title: str = "", paired: bool = True):
+    """Run the test AutoStatLib picks for N groups and save a bar plot.
 
-    Two groups give a Wilcoxon / paired t-test as before; three or more give a
-    repeated-measures ANOVA (or its non-parametric counterpart) plus the
-    post-hoc matrix, which the plot annotates.
+    Paired (the default, for conditions measured on the same boutons): two
+    groups give a Wilcoxon / paired t-test, three or more a repeated-measures
+    ANOVA (or its non-parametric counterpart) plus the post-hoc matrix, which
+    the plot annotates.
+
+    Unpaired (for independent cohorts such as SHAM against SNI): two groups
+    give a Mann-Whitney / unpaired t-test, three or more a one-way ANOVA or
+    Kruskal-Wallis. The groups may differ in size, since nothing pairs.
 
     Returns the exact p-value (or None if the test could not run).
     """
     analysis = AutoStatLib.StatisticalAnalysis(
         [list(group) for group in groups],
-        paired=True,
+        paired=paired,
         groups_name=list(names),
         verbose=False,
     )
@@ -823,12 +1039,13 @@ def group_barplot(groups, names, png_path: Path, y_label: str = "", plot_title: 
     res = analysis.GetResult() or {}
     p_exact = res.get("p_value_exact")
 
-    plot = AutoStatLib.BarStatPlot(
+    plot = AutoStatLib.StatPlots.BarStatPlot(
         data_groups=res['Samples'],
         plot_title=plot_title,
         y_label=y_label,
         figure_scale_factor=1.0,
         # overlay="honeycomb",
+        overlay="scatter",
         **res,
     )
     plot.plot()
@@ -882,8 +1099,9 @@ def sheet_name(text: str, used) -> str:
 
 
 def add_barplot_band(ws, rows, comparisons, tmp: Path, first_row: int,
-                     plot_title: str = "", prefix: str = "") -> int:
-    """Run each paired test and embed its bar plot side by side.
+                     plot_title: str = "", prefix: str = "",
+                     paired: bool = True) -> int:
+    """Run each test and embed its bar plot side by side.
 
     A comparison names its groups either as "left"/"right" or, for three or
     more, as a list of row columns in "cols". Without an explicit "anchor" the
@@ -895,14 +1113,22 @@ def add_barplot_band(ws, rows, comparisons, tmp: Path, first_row: int,
     band, next_col = 0, FIRST_PLOT_COL
     for i, cmp in enumerate(comparisons):
         cols = cmp.get("cols") or [cmp["left"], cmp["right"]]
-        # Keep only rows where every group is numeric (drops the empty cells of
-        # filtered ROIs, and days a condition never saw).
-        kept = [r for r in rows
-                if all(isinstance(r[col], (int, float)) for col in cols)]
-        groups = [[r[col] for r in kept] for col in cols]
+        if paired:
+            # Keep only rows where every group is numeric (drops the empty cells
+            # of filtered ROIs, and days a condition never saw).
+            kept = [r for r in rows
+                    if all(isinstance(r[col], (int, float)) for col in cols)]
+            groups = [[r[col] for r in kept] for col in cols]
+        else:
+            # Independent cohorts: each column stands on its own, so a blank
+            # left by the other cohort must not discard this one's value. The
+            # groups end up with different lengths, which is expected here.
+            groups = [[r[col] for r in rows if isinstance(r[col], (int, float))]
+                      for col in cols]
         png = tmp / f"{prefix}plot_{i}.png"
         p = group_barplot(groups, cmp["names"], png,
-                          y_label=cmp["y_label"], plot_title=plot_title)
+                          y_label=cmp["y_label"], plot_title=plot_title,
+                          paired=paired)
         img = XLImage(str(png))
         img.width  = img.width  // IMG_SCALE
         img.height = img.height // IMG_SCALE
@@ -913,8 +1139,9 @@ def add_barplot_band(ws, rows, comparisons, tmp: Path, first_row: int,
         next_col = col + cols_for(img.width) + 1
 
         label = " vs ".join(cmp["names"])
-        print(f"      {label}: paired test p={p:.4g}" if p is not None else
-              f"      {label}: paired test skipped")
+        kind = "paired" if paired else "unpaired"
+        print(f"      {label}: {kind} test p={p:.4g}" if p is not None else
+              f"      {label}: {kind} test skipped")
     return first_row + band + 1
 
 
@@ -1035,7 +1262,7 @@ def write_xlsx(id_label, rows, out_path: Path, plot_title: str = "", hist_groups
     Ampl (cols 2-3) and AUC (cols 6-7) pairs and embed the bar plots just
     below the last data row, under their respective columns.
 
-    `hist_groups` is a per_roi_values() mapping; when given, the six metric
+    `hist_groups` is a per_roi_values() mapping; when given, the HIST_PANELS
     histograms are dropped underneath the bar plots in a 3-wide grid. They
     describe boutons rather than the rows above, hence their own title.
     """
@@ -1058,8 +1285,11 @@ def write_xlsx(id_label, rows, out_path: Path, plot_title: str = "", hist_groups
         if hist_groups:
             add_histogram_band(
                 ws, tmp, next_row + 1,
-                lambda metric, png: histogram_png(hist_groups, metric, png,
-                                                  hist_title or plot_title),
+                lambda panel, png: (
+                    pair_png(hist_groups, panel, png, hist_title or plot_title)
+                    if isinstance(panel, tuple)
+                    else histogram_png(hist_groups, panel, png,
+                                       hist_title or plot_title)),
             )
         wb.save(out_path)
         if EMBED_SVG:
@@ -1081,7 +1311,8 @@ def fill_comparison_sheet(ws, block, tmp: Path, prefix: str = ""):
                    for cmp in condition_comparisons(len(labels))]
 
     next_row = add_barplot_band(ws, block["rows"], comparisons, tmp, anchor_row,
-                                block.get("plot_title", ""), prefix=prefix)
+                                block.get("plot_title", ""), prefix=prefix,
+                                paired=block.get("paired", True))
     if block.get("hist_conditions"):
         add_histogram_band(
             ws, tmp, next_row + 1,
@@ -1107,7 +1338,8 @@ def write_comparison_xlsx(blocks, out_path: Path):
         for i, block in enumerate(blocks):
             ws = wb.active if i == 0 else wb.create_sheet()
             ws.title = sheet_name(block["sheet"], used)
-            print(f"    sheet '{ws.title}': {len(block['rows'])} paired day(s)")
+            kind = "paired" if block.get("paired", True) else "independent"
+            print(f"    sheet '{ws.title}': {len(block['rows'])} {kind} day(s)")
             fill_comparison_sheet(ws, block, tmp, prefix=f"s{i}_")
         wb.save(out_path)
         if EMBED_SVG:
@@ -1207,12 +1439,134 @@ def write_condition_comparisons(work_folder: Path, conditions):
           f"[{' vs '.join(labels[suffix] for suffix in order)}] to {out_path}")
 
 
+def cohort_of(folder_name: str):
+    """The GROUP_SUFFIXES cohort a working folder belongs to, or None."""
+    lowered = folder_name.lower()
+    for suffix in GROUP_SUFFIXES:
+        name = clean_suffix(suffix)
+        if name and lowered.endswith(suffix.lower()):
+            return name
+    return None
+
+
+def cohort_day_rows(entries):
+    """condition suffix -> {row label: day row}, pooled over a cohort's folders.
+
+    The label carries the working folder as well as the day, because two
+    folders of one cohort may well have recorded on the same date and each is
+    its own n here.
+    """
+    out = {}
+    for work_folder, conditions in entries:
+        for suffix, instances in conditions.items():
+            for row in day_rows(instances):
+                out.setdefault(suffix, {})[f"{work_folder.name} {row[0]}"] = row
+    return out
+
+
+def cohort_roi_values(entries, suffix):
+    """per_roi_values() for one cohort and condition; one n per folder-day."""
+    folders = []
+    for work_folder, conditions in entries:
+        instances = conditions.get(suffix, {})
+        for instance in sorted(instances):
+            key = f"{work_folder.name} {instance}"
+            folders += [(key, mats) for _, mats in instances[instance]]
+    return per_roi_values(folders)
+
+
+def group_comparison_rows(by_cohort, names):
+    """One row per (cohort, day): that cohort's ratios, the others left blank.
+
+    Independent groups have nothing to line up against each other, so every day
+    keeps its own row instead of sharing one. The column layout is still the
+    one fill_comparison_sheet() writes its header for, which is what lets the
+    cohort sheets reuse the whole cross-condition machinery.
+    """
+    rows = []
+    for position, name in enumerate(names):
+        for label in sorted(by_cohort[name]):
+            day = by_cohort[name][label]
+            row, filled = [label], False
+            for i, col in enumerate(RATIO_COLUMNS.values()):
+                value = day[col]
+                cells = [""] * len(names)
+                if isinstance(value, (int, float)) and np.isfinite(value):
+                    cells[position], filled = value, True
+                if i:
+                    row.append("")       # the blank separator column
+                row.extend(cells)
+            if filled:                   # a day with no finite ratio says nothing
+                rows.append(row)
+    return rows
+
+
+def write_group_comparisons(cohorts):
+    """One ROOT-level file comparing independent cohorts, e.g. SHAM vs SNI.
+
+    "<A>_vs_<B>_summary.xlsx" is the between-animal counterpart of the
+    cross-condition file. The cohorts are different animals, so nothing pairs:
+    every day of every cohort is its own n, the groups may differ in size, and
+    the test AutoStatLib picks is the unpaired one.
+
+    One sheet per condition the cohorts have in common -- normally just the
+    unlabelled one, but a cohort recorded with triggers keeps Control against
+    Control rather than mixing conditions into the group.
+    """
+    names = [name for name in (clean_suffix(s) for s in GROUP_SUFFIXES)
+             if name in cohorts]
+    if len(names) < 2:
+        return
+
+    out_path = ROOT / (COMPARE_SEP.join(names) + GROUP_SUMMARY_SUFFIX)
+    if out_path.exists():
+        print(f"Skipping {out_path.name} (already exists)")
+        return
+
+    per_cohort = {name: cohort_day_rows(cohorts[name]) for name in names}
+    pair = " vs ".join(names)
+    shared = set.intersection(*(set(rows) for rows in per_cohort.values()))
+    if not shared:
+        print(f"  ! {pair}: the cohorts share no condition; nothing to compare")
+        return
+
+    blocks = []
+    for suffix in ordered_conditions(shared):
+        by_cohort = {name: per_cohort[name][suffix] for name in names}
+        rows = group_comparison_rows(by_cohort, names)
+        if not rows:
+            print(f"  ! {pair} [{condition_label(suffix)}]: no finite ratio; "
+                  f"sheet left out")
+            continue
+        label = clean_suffix(suffix)
+        counts = ", ".join(f"{name} n={len(by_cohort[name])}" for name in names)
+        print(f"  {pair}{f' [{label}]' if label else ''}: {counts}")
+        blocks.append({
+            "sheet": label or "comparison",
+            "labels": names,
+            "rows": rows,
+            "paired": False,
+            "plot_title": stacked_title(pair, label),
+            "hist_title": stacked_title(pair, label),
+            "hist_conditions": {name: cohort_roi_values(cohorts[name], suffix)
+                                for name in names},
+        })
+
+    if not blocks:
+        print(f"  ! {pair}: nothing to compare across cohorts")
+        return
+
+    write_comparison_xlsx(blocks, out_path)
+    print(f"Wrote {len(blocks)} cohort sheet(s) [{pair}, unpaired] to {out_path}")
+
+
 def main():
     if not ROOT.is_dir():
         sys.exit(f"Root folder not found: {ROOT}")
 
     candidates = [d for d in sorted(ROOT.iterdir()) if d.is_dir()]
     processed = 0
+    cohorts = {}        # SHAM/SNI -> [(work folder, its conditions)]
 
     for work_folder in candidates:
         conditions = collect_conditions(work_folder)
@@ -1258,7 +1612,18 @@ def main():
         if len(conditions) > 1:
             write_condition_comparisons(work_folder, conditions)
 
+        # ..._SHAM / ..._SNI folders are independent cohorts, compared at the end
+        # once every working folder has been read.
+        cohort = cohort_of(work_folder.name)
+        if cohort:
+            cohorts.setdefault(cohort, []).append((work_folder, conditions))
+
         processed += 1
+        print()
+
+    # Between-animal cohorts, pooled across all their working folders.
+    if len(cohorts) > 1:
+        write_group_comparisons(cohorts)
         print()
 
     if processed == 0:
